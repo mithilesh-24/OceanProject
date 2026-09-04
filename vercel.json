@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/erddap/:path*",
+      "destination": "https://erddap.incois.gov.in/erddap/:path*"
+    }
+  ]
+}
