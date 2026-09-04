@@ -9,11 +9,20 @@ from app.models.analysis import AccuracyMetric, ErrorHotspot, AnomalyAlert, Save
 from app.models.pipeline import IngestionPipeline, UserProfile
 
 def init_db(db: Session):
-    # Create all tables in database
+    # Create or update all tables in database
+    try:
+        # Test if latest schema column exists
+        db.query(ArgoFloat).filter(ArgoFloat.cycle_history.isnot(None)).first()
+    except Exception:
+        db.rollback()
+        print("[Bluesphere Seeder] Schema update detected. Rebuilding SQLite tables...")
+        Base.metadata.drop_all(bind=engine)
+        Base.metadata.create_all(bind=engine)
+
     Base.metadata.create_all(bind=engine)
 
     # Check if already seeded
-    if db.query(Dataset).first():
+    if db.query(Dataset).first() and db.query(ArgoFloat).first():
         return
 
     print("[Bluesphere Seeder] Seeding Indian Ocean datasets, observations, and models...")
@@ -180,7 +189,19 @@ def init_db(db: Session):
             status="Active (Ascending)",
             battery_state=94.0,
             institution="INCOIS",
-            profile_data={"depths": [0, 10, 25, 50, 75, 100, 150, 200, 500, 1000, 2000], "temp": [28.92, 28.90, 28.85, 27.2, 24.1, 21.0, 16.5, 14.2, 10.1, 6.5, 2.4], "sal": [33.18, 33.20, 33.45, 34.1, 34.8, 35.0, 35.1, 35.05, 35.0, 34.8, 34.7]}
+            profile_data={
+                "depths": [0, 10, 25, 50, 75, 100, 150, 200, 300, 500, 800, 1000, 1500, 2000],
+                "temp": [28.92, 28.90, 28.85, 27.20, 24.10, 21.00, 16.50, 14.20, 12.10, 10.10, 8.20, 6.50, 3.80, 2.40],
+                "sal": [33.18, 33.20, 33.45, 34.10, 34.80, 35.00, 35.10, 35.05, 35.02, 35.00, 34.90, 34.80, 34.75, 34.70],
+                "density": [21.4, 21.4, 21.6, 22.3, 23.2, 24.5, 25.8, 26.5, 26.9, 27.2, 27.5, 27.7, 27.8, 27.9],
+                "dissolved_o2": [205.2, 204.8, 198.5, 165.2, 85.0, 32.4, 18.2, 22.5, 38.0, 55.4, 82.0, 110.5, 145.0, 168.0]
+            },
+            cycle_history=[
+                {"cycle": 11, "date": "2026-09-04", "lat": 14.285, "lon": 87.450, "temp": 28.92, "sal": 33.18},
+                {"cycle": 10, "date": "2026-08-25", "lat": 14.120, "lon": 87.310, "temp": 29.10, "sal": 33.25},
+                {"cycle": 9, "date": "2026-08-15", "lat": 13.980, "lon": 87.150, "temp": 29.35, "sal": 33.30},
+                {"cycle": 8, "date": "2026-08-05", "lat": 13.820, "lon": 86.990, "temp": 29.50, "sal": 33.42}
+            ]
         ),
         ArgoFloat(
             wmo_id="2902224",
@@ -194,7 +215,13 @@ def init_db(db: Session):
             max_depth=2000.0,
             status="Active (Parked)",
             battery_state=78.0,
-            institution="Coriolis GDAC"
+            institution="Coriolis GDAC",
+            profile_data={
+                "depths": [0, 20, 50, 100, 150, 200, 400, 600, 1000, 1500, 2000],
+                "temp": [21.50, 21.45, 20.80, 18.20, 15.60, 13.40, 10.20, 7.80, 5.10, 3.20, 1.90],
+                "sal": [35.40, 35.42, 35.45, 35.50, 35.48, 35.35, 34.90, 34.60, 34.55, 34.68, 34.72],
+                "density": [24.8, 24.8, 25.1, 25.9, 26.6, 27.0, 27.4, 27.6, 27.8, 27.9, 28.0]
+            }
         ),
         ArgoFloat(
             wmo_id="7902190",
@@ -208,7 +235,12 @@ def init_db(db: Session):
             max_depth=1500.0,
             status="Active (Transmitting)",
             battery_state=99.0,
-            institution="INCOIS"
+            institution="INCOIS",
+            profile_data={
+                "depths": [0, 10, 20, 40, 75, 100, 150, 250, 500, 1000, 1500],
+                "temp": [29.80, 29.75, 29.50, 28.20, 25.40, 22.10, 17.80, 13.90, 9.80, 6.20, 3.90],
+                "sal": [32.90, 32.95, 33.10, 33.90, 34.70, 34.95, 35.05, 35.00, 34.95, 34.82, 34.74]
+            }
         ),
         ArgoFloat(
             wmo_id="2901540",
@@ -222,7 +254,13 @@ def init_db(db: Session):
             max_depth=2000.0,
             status="Active (Drifting)",
             battery_state=86.0,
-            institution="INCOIS"
+            institution="INCOIS",
+            profile_data={
+                "depths": [0, 25, 50, 75, 100, 150, 200, 400, 800, 1200, 2000],
+                "temp": [27.85, 27.80, 26.50, 24.10, 21.80, 18.20, 15.60, 12.10, 8.90, 5.80, 2.60],
+                "sal": [36.20, 36.22, 36.35, 36.40, 36.25, 35.95, 35.70, 35.30, 35.05, 34.90, 34.78],
+                "dissolved_o2": [195.0, 192.0, 175.0, 95.0, 22.0, 8.5, 4.2, 12.0, 45.0, 90.0, 140.0]
+            }
         ),
         ArgoFloat(
             wmo_id="1901842",
@@ -236,7 +274,12 @@ def init_db(db: Session):
             max_depth=2000.0,
             status="Active (Descending)",
             battery_state=91.0,
-            institution="INCOIS"
+            institution="INCOIS",
+            profile_data={
+                "depths": [0, 20, 50, 80, 120, 160, 250, 500, 1000, 1500, 2000],
+                "temp": [28.75, 28.70, 28.10, 25.90, 20.40, 16.80, 13.50, 9.70, 6.40, 4.10, 2.50],
+                "sal": [34.80, 34.82, 34.95, 35.15, 35.25, 35.18, 35.10, 35.00, 34.88, 34.79, 34.72]
+            }
         )
     ]
     db.add_all(argo_floats)
@@ -253,7 +296,20 @@ def init_db(db: Session):
             depth_range="0 - 1000 m",
             battery_pct=74,
             sensors="CTD, DO, Backscatter, Chl-a",
-            status="Active Sawtooth Dive"
+            status="Active Sawtooth Dive",
+            trajectory=[
+                {"lat": 11.20, "lon": 81.80, "time": "2026-08-20"},
+                {"lat": 11.45, "lon": 82.05, "time": "2026-08-25"},
+                {"lat": 11.65, "lon": 82.22, "time": "2026-08-30"},
+                {"lat": 11.85, "lon": 82.40, "time": "2026-09-04"}
+            ],
+            profile_data={
+                "sawtooth_dives": [
+                    {"dive": 340, "depth_profile": [0, 50, 100, 200, 400, 600, 800, 1000], "temp": [29.1, 28.4, 23.2, 16.4, 11.8, 8.9, 7.1, 5.8], "sal": [33.4, 34.1, 34.9, 35.1, 35.0, 34.9, 34.8, 34.7]},
+                    {"dive": 341, "depth_profile": [0, 50, 100, 200, 400, 600, 800, 1000], "temp": [29.0, 28.2, 22.8, 16.1, 11.5, 8.7, 7.0, 5.7], "sal": [33.5, 34.2, 34.95, 35.1, 35.0, 34.9, 34.8, 34.7]},
+                    {"dive": 342, "depth_profile": [0, 50, 100, 200, 400, 600, 800, 1000], "temp": [28.9, 28.0, 22.5, 15.9, 11.4, 8.6, 6.9, 5.6], "sal": [33.6, 34.3, 35.0, 35.1, 35.0, 34.9, 34.8, 34.7]}
+                ]
+            }
         ),
         GliderMission(
             id="SG-591",
@@ -265,7 +321,17 @@ def init_db(db: Session):
             depth_range="0 - 700 m",
             battery_pct=48,
             sensors="CTD, Dissolved Oxygen, Nitrate",
-            status="Active Sawtooth Dive"
+            status="Active Sawtooth Dive",
+            trajectory=[
+                {"lat": 16.50, "lon": 67.20, "time": "2026-08-15"},
+                {"lat": 16.85, "lon": 67.65, "time": "2026-08-25"},
+                {"lat": 17.20, "lon": 68.10, "time": "2026-09-04"}
+            ],
+            profile_data={
+                "sawtooth_dives": [
+                    {"dive": 618, "depth_profile": [0, 50, 100, 200, 300, 500, 700], "temp": [28.2, 27.1, 22.4, 16.5, 14.1, 11.2, 8.5], "sal": [36.4, 36.5, 36.3, 35.8, 35.5, 35.2, 35.0], "oxygen": [190.0, 140.0, 35.0, 6.5, 3.8, 15.0, 48.0]}
+                ]
+            }
         ),
         GliderMission(
             id="SG-704",
@@ -277,12 +343,25 @@ def init_db(db: Session):
             depth_range="0 - 1000 m",
             battery_pct=91,
             sensors="CTD, Microstructure Turbulence",
-            status="Deploy Phase"
+            status="Deploy Phase",
+            trajectory=[
+                {"lat": 0.10, "lon": 84.80, "time": "2026-09-01"},
+                {"lat": 0.40, "lon": 85.10, "time": "2026-09-04"}
+            ]
         )
     ]
     db.add_all(gliders)
 
     # 5. Moored Buoys
+    buoy_timeseries_sample = [
+        {"time": "00:00", "sst": 29.2, "air_temp": 27.8, "wind": 11.8, "wave": 1.7},
+        {"time": "04:00", "sst": 29.0, "air_temp": 27.2, "wind": 12.5, "wave": 1.8},
+        {"time": "08:00", "sst": 29.4, "air_temp": 28.1, "wind": 13.0, "wave": 1.9},
+        {"time": "12:00", "sst": 29.8, "air_temp": 29.4, "wind": 14.2, "wave": 2.0},
+        {"time": "16:00", "sst": 29.6, "air_temp": 28.8, "wind": 13.5, "wave": 1.9},
+        {"time": "20:00", "sst": 29.3, "air_temp": 28.0, "wind": 12.0, "wave": 1.8}
+    ]
+
     buoys = [
         MooredBuoy(
             station_id="OMNI-BD08",
@@ -294,7 +373,10 @@ def init_db(db: Session):
             air_temp=28.10,
             wind_speed=12.4,
             wave_height=1.8,
-            status="Online (Transmitting)"
+            air_pressure=1008.5,
+            relative_humidity=84.0,
+            status="Online (Transmitting)",
+            timeseries_data=buoy_timeseries_sample
         ),
         MooredBuoy(
             station_id="OMNI-AD06",
@@ -306,7 +388,10 @@ def init_db(db: Session):
             air_temp=27.20,
             wind_speed=16.2,
             wave_height=2.4,
-            status="Online (Transmitting)"
+            air_pressure=1011.2,
+            relative_humidity=78.5,
+            status="Online (Transmitting)",
+            timeseries_data=buoy_timeseries_sample
         ),
         MooredBuoy(
             station_id="RAMA-23001",
@@ -318,7 +403,10 @@ def init_db(db: Session):
             air_temp=27.90,
             wind_speed=8.5,
             wave_height=1.2,
-            status="Online (Transmitting)"
+            air_pressure=1010.0,
+            relative_humidity=82.0,
+            status="Online (Transmitting)",
+            timeseries_data=buoy_timeseries_sample
         ),
         MooredBuoy(
             station_id="COASTAL-CB02",
@@ -330,7 +418,10 @@ def init_db(db: Session):
             air_temp=28.80,
             wind_speed=9.0,
             wave_height=0.9,
-            status="Online (Transmitting)"
+            air_pressure=1009.2,
+            relative_humidity=86.0,
+            status="Online (Transmitting)",
+            timeseries_data=buoy_timeseries_sample
         )
     ]
     db.add_all(buoys)
@@ -345,9 +436,16 @@ def init_db(db: Session):
             longitude=88.00,
             max_depth=3800.0,
             bottles_count=24,
-            parameters="Conductivity, Temp, Pressure, DO, Fluorescence",
+            parameters="Conductivity, Temp, Pressure, DO, Fluorescence, Nutrients",
             cruise_date=now - timedelta(days=12),
-            qc_status="Quality Controlled (QC-1)"
+            qc_status="Quality Controlled (QC-1)",
+            profile_data={
+                "depths": [5, 25, 50, 100, 200, 500, 1000, 1500, 2000, 3000, 3800],
+                "temp": [28.85, 28.80, 27.10, 20.80, 14.10, 9.80, 6.20, 3.90, 2.40, 1.80, 1.45],
+                "sal": [33.15, 33.25, 34.00, 34.85, 35.05, 35.00, 34.85, 34.75, 34.70, 34.72, 34.74],
+                "dissolved_o2": [210.0, 208.5, 172.0, 80.5, 24.0, 42.0, 95.0, 135.0, 160.0, 175.0, 182.0],
+                "chlorophyll": [0.85, 1.42, 0.95, 0.18, 0.02, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            }
         ),
         CtdCast(
             cast_id="CTD-NIDHI-2026-112",
@@ -359,7 +457,29 @@ def init_db(db: Session):
             bottles_count=24,
             parameters="Conductivity, Temp, Salinity, Nutrients (NO3, PO4)",
             cruise_date=now - timedelta(days=7),
-            qc_status="Quality Controlled (QC-1)"
+            qc_status="Quality Controlled (QC-1)",
+            profile_data={
+                "depths": [5, 25, 50, 100, 200, 400, 800, 1200, 2000, 2500],
+                "temp": [28.10, 28.05, 26.80, 22.00, 16.20, 12.50, 9.10, 6.00, 2.70, 2.10],
+                "sal": [36.30, 36.35, 36.45, 36.20, 35.85, 35.40, 35.10, 34.92, 34.80, 34.76]
+            }
+        ),
+        CtdCast(
+            cast_id="CTD-MANJUSHA-2026-019",
+            vessel="CRV Sagar Manjusha",
+            station_name="Stn #03 (Goa Shelf)",
+            latitude=15.45,
+            longitude=73.60,
+            max_depth=200.0,
+            bottles_count=12,
+            parameters="CTD, Turbidity, PAR, Chlorophyll",
+            cruise_date=now - timedelta(days=2),
+            qc_status="Quality Controlled (QC-1)",
+            profile_data={
+                "depths": [2, 10, 25, 50, 75, 100, 150, 200],
+                "temp": [28.9, 28.7, 27.5, 24.2, 21.8, 19.4, 16.2, 14.8],
+                "sal": [35.2, 35.3, 35.6, 35.9, 36.1, 36.2, 36.2, 36.1]
+            }
         )
     ]
     db.add_all(ctds)
@@ -375,7 +495,18 @@ def init_db(db: Session):
             acoustic_freq="75 kHz Long-Ranger",
             peak_current=1.24,
             max_shear=0.014,
-            status="Online"
+            status="Online",
+            velocity_profile={
+                "bins": [
+                    {"depth": 20, "u_velocity": 1.18, "v_velocity": 0.22, "magnitude": 1.20, "direction": 79.4, "shear": 0.004},
+                    {"depth": 50, "u_velocity": 1.22, "v_velocity": 0.20, "magnitude": 1.24, "direction": 80.7, "shear": 0.006},
+                    {"depth": 100, "u_velocity": 0.95, "v_velocity": 0.12, "magnitude": 0.96, "direction": 82.8, "shear": 0.014},
+                    {"depth": 150, "u_velocity": 0.54, "v_velocity": 0.04, "magnitude": 0.54, "direction": 85.8, "shear": 0.011},
+                    {"depth": 200, "u_velocity": 0.22, "v_velocity": -0.05, "magnitude": 0.23, "direction": 102.8, "shear": 0.008},
+                    {"depth": 300, "u_velocity": -0.15, "v_velocity": -0.08, "magnitude": 0.17, "direction": 241.9, "shear": 0.005},
+                    {"depth": 500, "u_velocity": -0.08, "v_velocity": -0.02, "magnitude": 0.08, "direction": 256.0, "shear": 0.002}
+                ]
+            }
         ),
         AdcpStation(
             station_id="ADCP-SOMALI-03",
@@ -387,7 +518,37 @@ def init_db(db: Session):
             acoustic_freq="150 kHz QuarterMaster",
             peak_current=2.10,
             max_shear=0.022,
-            status="Online"
+            status="Online",
+            velocity_profile={
+                "bins": [
+                    {"depth": 15, "u_velocity": 1.35, "v_velocity": 1.61, "magnitude": 2.10, "direction": 40.0, "shear": 0.012},
+                    {"depth": 40, "u_velocity": 1.22, "v_velocity": 1.48, "magnitude": 1.92, "direction": 39.5, "shear": 0.022},
+                    {"depth": 80, "u_velocity": 0.92, "v_velocity": 1.15, "magnitude": 1.47, "direction": 38.7, "shear": 0.018},
+                    {"depth": 150, "u_velocity": 0.45, "v_velocity": 0.62, "magnitude": 0.77, "direction": 36.0, "shear": 0.012},
+                    {"depth": 300, "u_velocity": 0.12, "v_velocity": 0.18, "magnitude": 0.22, "direction": 33.7, "shear": 0.004}
+                ]
+            }
+        ),
+        AdcpStation(
+            station_id="ADCP-EICC-02",
+            mooring_array="East India Coastal Current Mooring",
+            location_desc="14.0°N, 80.5°E (0–200m)",
+            latitude=14.0,
+            longitude=80.5,
+            depth_range="0 - 200 m",
+            acoustic_freq="300 kHz Workhorse",
+            peak_current=0.85,
+            max_shear=0.009,
+            status="Online",
+            velocity_profile={
+                "bins": [
+                    {"depth": 10, "u_velocity": 0.20, "v_velocity": 0.83, "magnitude": 0.85, "direction": 13.5, "shear": 0.006},
+                    {"depth": 30, "u_velocity": 0.18, "v_velocity": 0.76, "magnitude": 0.78, "direction": 13.3, "shear": 0.009},
+                    {"depth": 60, "u_velocity": 0.12, "v_velocity": 0.52, "magnitude": 0.53, "direction": 13.0, "shear": 0.008},
+                    {"depth": 100, "u_velocity": 0.06, "v_velocity": 0.28, "magnitude": 0.29, "direction": 12.1, "shear": 0.006},
+                    {"depth": 200, "u_velocity": 0.02, "v_velocity": 0.10, "magnitude": 0.10, "direction": 11.3, "shear": 0.002}
+                ]
+            }
         )
     ]
     db.add_all(adcps)

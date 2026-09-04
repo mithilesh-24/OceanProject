@@ -17,7 +17,8 @@ class ArgoFloat(Base):
     status = Column(String(64), default="Active (Ascending)")
     battery_state = Column(Float, default=95.0)
     institution = Column(String(64), default="INCOIS")
-    profile_data = Column(JSON, nullable=True) # Vertical depth vs temp, sal arrays
+    profile_data = Column(JSON, nullable=True) # depths, temp, sal, density, dissolved_o2, qc_flags
+    cycle_history = Column(JSON, nullable=True) # historical cycle timestamps & surface readings
 
 class GliderMission(Base):
     __tablename__ = "glider_missions"
@@ -32,7 +33,8 @@ class GliderMission(Base):
     battery_pct = Column(Integer, default=80)
     sensors = Column(String(255), nullable=True)
     status = Column(String(64), default="Active Sawtooth Dive")
-    trajectory = Column(JSON, nullable=True)
+    trajectory = Column(JSON, nullable=True) # list of waypoints [{lat, lon, time, depth}]
+    profile_data = Column(JSON, nullable=True) # sawtooth profile slices with temp/sal/oxygen
 
 class MooredBuoy(Base):
     __tablename__ = "moored_buoys"
@@ -46,8 +48,11 @@ class MooredBuoy(Base):
     air_temp = Column(Float, nullable=True)
     wind_speed = Column(Float, nullable=True)
     wave_height = Column(Float, nullable=True)
+    air_pressure = Column(Float, nullable=True)
+    relative_humidity = Column(Float, nullable=True)
     status = Column(String(64), default="Online (Transmitting)")
     last_update = Column(DateTime, default=datetime.utcnow)
+    timeseries_data = Column(JSON, nullable=True) # 24h/48h hourly measurements
 
 class CtdCast(Base):
     __tablename__ = "ctd_casts"
@@ -62,6 +67,7 @@ class CtdCast(Base):
     parameters = Column(String(255), nullable=False)
     cruise_date = Column(DateTime, nullable=False)
     qc_status = Column(String(64), default="Quality Controlled (QC-1)")
+    profile_data = Column(JSON, nullable=True) # full-depth rosette bottle samples & continuous sensor lines
 
 class AdcpStation(Base):
     __tablename__ = "adcp_stations"
@@ -76,3 +82,4 @@ class AdcpStation(Base):
     peak_current = Column(Float, nullable=False)
     max_shear = Column(Float, nullable=False)
     status = Column(String(64), default="Online")
+    velocity_profile = Column(JSON, nullable=True) # depth bins, u, v, w, velocity speed, direction, shear

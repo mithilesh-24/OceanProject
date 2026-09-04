@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     # Default to SQLite for zero-config development, with PostgreSQL supported via DATABASE_URL
     DATABASE_URL: str = os.getenv(
         "DATABASE_URL",
-        "sqlite:///./bluesphere.db"
+        "sqlite:///./bluesphere_v2.db"
     )
     
     # CORS Origins

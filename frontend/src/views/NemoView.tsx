@@ -1,10 +1,16 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Waves, ExternalLink, BarChart2, Layers, Cpu, Database, Play } from 'lucide-react';
+import { Waves, ExternalLink, BarChart2, Layers, Cpu, Database, Play, Compass } from 'lucide-react';
 import { Button } from '../components/UI/Button';
 import { Badge } from '../components/UI/Badge';
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '../components/UI/Card';
+import { ModelSliceVisualizer } from '../components/models/ModelSliceVisualizer';
+import { ModelVerticalTransectChart } from '../components/models/ModelVerticalTransectChart';
+import { ModelDepthProfileChart } from '../components/models/ModelDepthProfileChart';
 
 export const NemoView: React.FC = () => {
+  const [probeCoord, setProbeCoord] = useState<{ lat: number; lon: number }>({ lat: 0.12, lon: 80.54 });
+
   const nemoLayers = [
     { level: 'Level 1 – 15', depth: '0 – 50 m', res: '1.0 m spacing (High Res Mixed Layer)' },
     { level: 'Level 16 – 35', depth: '50 – 250 m', res: '5.0 – 10.0 m (Thermocline Transition)' },
@@ -13,25 +19,26 @@ export const NemoView: React.FC = () => {
   ];
 
   return (
-    <div className="page-scroll-container space-y-5">
+    <div className="page-scroll-container space-y-6">
       {/* Header */}
       <div className="page-header-row">
         <div>
-          <div className="flex items-center gap-2">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <h1 className="page-title">
               <Waves className="w-5 h-5 text-[var(--primary)]" />
-              NEMO European Global Ocean Model (v4.2)
+              NEMO European Global Ocean Model (v4.2) Explorer
             </h1>
-            <Badge variant="primary">75 Vertical z-Levels</Badge>
+            <Badge variant="primary">75 VERTICAL z-STAR LEVELS</Badge>
+            <Badge variant="success" dot>COPERNICUS CMEMS</Badge>
           </div>
           <p className="page-subtitle">
-            Nucleus for European Modelling of the Ocean engine resolving global thermohaline circulation and sea-ice thermodynamics.
+            Nucleus for European Modelling of the Ocean engine resolving global thermohaline conveyor circulation and sea-ice thermodynamics.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Link to="/explorer">
-            <Button variant="primary" size="sm" leftIcon={<ExternalLink className="w-3.5 h-3.5" />}>
+            <Button variant="primary" size="sm" leftIcon={<Compass className="w-3.5 h-3.5" />}>
               Display on 3D Globe
             </Button>
           </Link>
@@ -51,7 +58,7 @@ export const NemoView: React.FC = () => {
             <Cpu className="w-4 h-4 text-[var(--primary)]" />
           </div>
           <div className="metric-stat-value">1/4° (~28 km)</div>
-          <div className="metric-stat-sub"><span>ORCA025 tripolar global grid</span></div>
+          <div className="metric-stat-sub">ORCA025 tripolar global grid</div>
         </div>
 
         <div className="metric-stat-card">
@@ -60,7 +67,7 @@ export const NemoView: React.FC = () => {
             <Layers className="w-4 h-4 text-[var(--accent)]" />
           </div>
           <div className="metric-stat-value">75 z-Levels</div>
-          <div className="metric-stat-sub"><span>Partial steps (z-tilde coordinate)</span></div>
+          <div className="metric-stat-sub">Partial steps (z* coordinate)</div>
         </div>
 
         <div className="metric-stat-card">
@@ -69,7 +76,7 @@ export const NemoView: React.FC = () => {
             <Play className="w-4 h-4 text-[var(--success)]" />
           </div>
           <div className="metric-stat-value">Daily Means</div>
-          <div className="metric-stat-sub"><span>Available 1993 – Present</span></div>
+          <div className="metric-stat-sub">Available 2000 – Present</div>
         </div>
 
         <div className="metric-stat-card">
@@ -77,9 +84,32 @@ export const NemoView: React.FC = () => {
             <span>Data Format</span>
             <Database className="w-4 h-4 text-[var(--warning)]" />
           </div>
-          <div className="metric-stat-value">NetCDF-4 / CF</div>
-          <div className="metric-stat-sub"><span>Copernicus Marine Service assimilation</span></div>
+          <div className="metric-stat-value" style={{ fontSize: '16px' }}>NetCDF-4 / CF</div>
+          <div className="metric-stat-sub">Copernicus Marine CMEMS</div>
         </div>
+      </div>
+
+      {/* 2D Subsetting Slice Visualizer */}
+      <ModelSliceVisualizer
+        modelId="nemo"
+        initialVariable="temperature"
+        initialDepth={0}
+        onSelectCoordinate={(lat, lon) => setProbeCoord({ lat, lon })}
+      />
+
+      {/* Vertical Hydrographic Transect & Point Column Depth Profile */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: '16px' }}>
+        <ModelVerticalTransectChart
+          modelId="nemo"
+          initialTransect="bob_meridional"
+          initialVariable="temperature"
+        />
+
+        <ModelDepthProfileChart
+          modelId="nemo"
+          latitude={probeCoord.lat}
+          longitude={probeCoord.lon}
+        />
       </div>
 
       {/* Vertical Discretization Table */}

@@ -1,10 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Layers, Waves, ArrowRight, BarChart2, Cpu, ExternalLink } from 'lucide-react';
+import { Layers, Waves, ArrowRight, BarChart2, Cpu, ExternalLink, Activity, Compass } from 'lucide-react';
 import { Button } from '../components/UI/Button';
 import { Badge } from '../components/UI/Badge';
+import { ModelSliceVisualizer } from '../components/models/ModelSliceVisualizer';
 
 export const ModelsView: React.FC = () => {
+  const [selectedModel, setSelectedModel] = useState<string>('hycom');
+
   const models = [
     {
       id: 'hycom',
@@ -15,6 +18,8 @@ export const ModelsView: React.FC = () => {
       path: '/models/hycom',
       badge: 'GLOBAL 1/12°',
       skill: '0.964 Willmott',
+      levels: 40,
+      coord: 'Hybrid (Isopycnal/σ/z)'
     },
     {
       id: 'roms',
@@ -25,6 +30,8 @@ export const ModelsView: React.FC = () => {
       path: '/models/roms',
       badge: 'REGIONAL 1/24°',
       skill: '0.978 Willmott',
+      levels: 32,
+      coord: 'Terrain-Following S-Levels'
     },
     {
       id: 'nemo',
@@ -35,11 +42,13 @@ export const ModelsView: React.FC = () => {
       path: '/models/nemo',
       badge: 'GLOBAL 1/4°',
       skill: '0.952 Willmott',
+      levels: 75,
+      coord: 'Partial Steps z-Star (z*)'
     },
   ];
 
   return (
-    <div className="page-scroll-container space-y-5">
+    <div className="page-scroll-container space-y-6">
       {/* Header */}
       <div className="page-header-row">
         <div>
@@ -48,11 +57,16 @@ export const ModelsView: React.FC = () => {
             Numerical Ocean Circulation Models
           </h1>
           <p className="page-subtitle">
-            Operational hydrodynamic and thermodynamic models assimilated with Indian Ocean satellite and in-situ observations.
+            Operational hydrodynamic and thermodynamic circulation models assimilated with Indian Ocean satellite and in-situ observation systems.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
+          <Link to="/explorer">
+            <Button variant="outline" size="sm" leftIcon={<Compass className="w-3.5 h-3.5" />}>
+              3D Globe Explorer
+            </Button>
+          </Link>
           <Link to="/comparison">
             <Button variant="primary" size="sm" leftIcon={<BarChart2 className="w-3.5 h-3.5" />}>
               Run Cross-Model Comparison
@@ -63,34 +77,83 @@ export const ModelsView: React.FC = () => {
 
       {/* Model Cards Grid */}
       <div className="grid-cols-3">
-        {models.map((m) => (
-          <div key={m.id} className="ui-card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '12px' }}>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
-                <div>
-                  <h3 style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--text-primary)' }}>{m.title}</h3>
-                  <span style={{ fontSize: '11px', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', display: 'block', marginTop: '2px' }}>{m.res}</span>
+        {models.map((m) => {
+          const isSelected = selectedModel === m.id;
+          return (
+            <div
+              key={m.id}
+              className="ui-card cursor-pointer transition-all"
+              onClick={() => setSelectedModel(m.id)}
+              style={{
+                padding: '16px',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                gap: '12px',
+                border: isSelected ? '1.5px solid var(--primary)' : '1px solid var(--border)',
+                backgroundColor: isSelected ? 'var(--bg-surface-secondary)' : 'var(--bg-surface)',
+                boxShadow: isSelected ? '0 0 15px rgba(0, 242, 254, 0.15)' : 'none'
+              }}
+            >
+              <div>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
+                  <div>
+                    <h3 style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--text-primary)' }}>{m.title}</h3>
+                    <span style={{ fontSize: '11px', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', display: 'block', marginTop: '2px' }}>{m.res}</span>
+                  </div>
+                  <Badge variant={isSelected ? 'primary' : 'neutral'}>{m.badge}</Badge>
                 </div>
-                <Badge variant="primary">{m.badge}</Badge>
+
+                <p style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.5, marginTop: '8px' }}>
+                  {m.desc}
+                </p>
+
+                <div style={{ marginTop: '12px', paddingTop: '8px', borderTop: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Provider: <strong style={{ color: 'var(--text-primary)' }}>{m.provider}</strong></span>
+                  <span style={{ color: 'var(--success)', fontWeight: 600 }}>{m.skill}</span>
+                </div>
               </div>
 
-              <p style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.5, marginTop: '8px' }}>
-                {m.desc}
-              </p>
-
-              <div style={{ marginTop: '12px', paddingTop: '8px', borderTop: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>
-                <span style={{ color: 'var(--text-muted)' }}>Provider: <strong style={{ color: 'var(--text-primary)' }}>{m.provider}</strong></span>
-                <span style={{ color: 'var(--success)', fontWeight: 600 }}>{m.skill}</span>
+              <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                <Button
+                  variant={isSelected ? 'primary' : 'outline'}
+                  size="sm"
+                  onClick={(e) => { e.stopPropagation(); setSelectedModel(m.id); }}
+                  style={{ flex: 1 }}
+                >
+                  {isSelected ? 'Active Slice Preview' : 'Select for Preview'}
+                </Button>
+                <Link to={m.path} style={{ textDecoration: 'none' }} onClick={(e) => e.stopPropagation()}>
+                  <Button variant="outline" size="sm" rightIcon={<ArrowRight className="w-3.5 h-3.5" />}>
+                    Details
+                  </Button>
+                </Link>
               </div>
             </div>
+          );
+        })}
+      </div>
 
-            <Link to={m.path} style={{ textDecoration: 'none' }}>
-              <Button variant="outline" size="sm" rightIcon={<ArrowRight className="w-3.5 h-3.5" />} className="w-full">
-                Inspect Parameters & Grids
-              </Button>
-            </Link>
+      {/* Live Interactive Quick Slice Preview */}
+      <div className="space-y-2">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Activity className="w-4 h-4 text-[var(--primary)]" />
+            <h2 style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--text-primary)' }}>
+              Interactive Subsetting & Slice Generation (Active: {selectedModel.toUpperCase()})
+            </h2>
           </div>
-        ))}
+          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+            Server-side NetCDF subsetting on Indian Ocean domain (50°E–95°E, 0°N–24°N)
+          </span>
+        </div>
+
+        <ModelSliceVisualizer
+          key={selectedModel}
+          modelId={selectedModel}
+          initialVariable="temperature"
+          initialDepth={0}
+        />
       </div>
 
       {/* Specification Comparison Table */}
@@ -128,7 +191,7 @@ export const ModelsView: React.FC = () => {
                 <td style={{ fontFamily: 'var(--font-mono)' }}>40 Levels</td>
                 <td>3-Hourly / Daily</td>
                 <td>Argo, Altimetry, SST</td>
-                <td><Link to="/models/hycom"><Button variant="outline" size="sm">View</Button></Link></td>
+                <td><Link to="/models/hycom"><Button variant="outline" size="sm">Explore</Button></Link></td>
               </tr>
               <tr>
                 <td style={{ fontWeight: 700, color: 'var(--text-primary)' }}>ROMS (Regional)</td>
@@ -137,7 +200,7 @@ export const ModelsView: React.FC = () => {
                 <td style={{ fontFamily: 'var(--font-mono)' }}>32 S-Levels</td>
                 <td>Hourly / Daily</td>
                 <td>OMNI Buoys, Tide gauges</td>
-                <td><Link to="/models/roms"><Button variant="outline" size="sm">View</Button></Link></td>
+                <td><Link to="/models/roms"><Button variant="outline" size="sm">Explore</Button></Link></td>
               </tr>
               <tr>
                 <td style={{ fontWeight: 700, color: 'var(--text-primary)' }}>NEMO (Global)</td>
@@ -146,7 +209,7 @@ export const ModelsView: React.FC = () => {
                 <td style={{ fontFamily: 'var(--font-mono)' }}>75 z-Levels</td>
                 <td>Daily / Monthly</td>
                 <td>Global GTS, Argo, Satellites</td>
-                <td><Link to="/models/nemo"><Button variant="outline" size="sm">View</Button></Link></td>
+                <td><Link to="/models/nemo"><Button variant="outline" size="sm">Explore</Button></Link></td>
               </tr>
             </tbody>
           </table>

@@ -1,11 +1,16 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   X, Radio, Compass, Thermometer, Droplets, ArrowDown, 
-  Battery, Clock, ShieldCheck, Download, Play, ExternalLink, Activity
+  Battery, Clock, ShieldCheck, Download, Play, ExternalLink, Activity,
+  Waves, Anchor, Layers, Cpu, BarChart2
 } from 'lucide-react';
 import { Button } from '../UI/Button';
 import { Badge } from '../UI/Badge';
+import { VerticalProfileChart } from '../charts/VerticalProfileChart';
+import { SawtoothGliderChart } from '../charts/SawtoothGliderChart';
+import { BuoyTimeSeriesChart } from '../charts/BuoyTimeSeriesChart';
+import { AdcpVelocityProfileChart } from '../charts/AdcpVelocityProfileChart';
 
 export interface SelectedObservation {
   type: 'argo' | 'glider' | 'buoy' | 'ctd' | 'adcp';
@@ -21,11 +26,10 @@ export interface SelectedObservation {
   maxDepth?: number | string;
   battery?: number | string;
   status?: string;
-  profileData?: {
-    depths: number[];
-    temp: number[];
-    sal: number[];
-  };
+  profileData?: any;
+  timeseriesData?: any;
+  velocityProfile?: any;
+  trajectory?: any;
 }
 
 interface ObservationDetailDrawerProps {
@@ -41,11 +45,26 @@ export const ObservationDetailDrawer: React.FC<ObservationDetailDrawerProps> = (
   onClose,
   onCenterCamera,
 }) => {
+  const [activeTab, setActiveTab] = useState<'profile' | 'table' | 'meta'>('profile');
+
   if (!isOpen || !observation) return null;
 
+  const getPlatformIcon = () => {
+    switch (observation.type) {
+      case 'argo': return Radio;
+      case 'glider': return Waves;
+      case 'buoy': return Anchor;
+      case 'ctd': return Layers;
+      case 'adcp': return Cpu;
+      default: return Activity;
+    }
+  };
+
+  const IconComp = getPlatformIcon();
+
   const depths = observation.profileData?.depths || [0, 25, 50, 100, 200, 500, 1000, 2000];
-  const temps = observation.profileData?.temp || [28.9, 28.8, 27.2, 21.0, 14.2, 10.1, 6.5, 2.4];
-  const sals = observation.profileData?.sal || [33.2, 33.5, 34.1, 35.0, 35.1, 35.0, 34.8, 34.7];
+  const temps = observation.profileData?.temp || [28.92, 28.85, 27.20, 21.00, 14.20, 10.10, 6.50, 2.40];
+  const sals = observation.profileData?.sal || [33.18, 33.45, 34.10, 35.00, 35.10, 35.00, 34.80, 34.70];
 
   return (
     <div
@@ -54,7 +73,7 @@ export const ObservationDetailDrawer: React.FC<ObservationDetailDrawerProps> = (
         top: 0,
         right: 0,
         bottom: 0,
-        width: '380px',
+        width: '420px',
         backgroundColor: 'var(--bg-surface)',
         borderLeft: '1px solid var(--border)',
         boxShadow: 'var(--shadow-lg)',
@@ -69,8 +88,8 @@ export const ObservationDetailDrawer: React.FC<ObservationDetailDrawerProps> = (
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div
             style={{
-              width: '32px',
-              height: '32px',
+              width: '34px',
+              height: '34px',
               borderRadius: 'var(--radius-md)',
               backgroundColor: 'var(--primary-subtle)',
               color: 'var(--primary)',
@@ -80,7 +99,7 @@ export const ObservationDetailDrawer: React.FC<ObservationDetailDrawerProps> = (
               shrink: 0,
             }}
           >
-            <Radio className="w-4 h-4" />
+            <IconComp className="w-4 h-4" />
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -106,6 +125,58 @@ export const ObservationDetailDrawer: React.FC<ObservationDetailDrawerProps> = (
         </button>
       </div>
 
+      {/* View Switcher Tabs */}
+      <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', backgroundColor: 'var(--bg-surface-secondary)' }}>
+        <button
+          onClick={() => setActiveTab('profile')}
+          style={{
+            flex: 1,
+            padding: '8px 12px',
+            fontSize: '11px',
+            fontWeight: 600,
+            border: 'none',
+            background: 'none',
+            borderBottom: activeTab === 'profile' ? '2px solid var(--primary)' : '2px solid transparent',
+            color: activeTab === 'profile' ? 'var(--primary)' : 'var(--text-muted)',
+            cursor: 'pointer',
+          }}
+        >
+          Profile Chart
+        </button>
+        <button
+          onClick={() => setActiveTab('table')}
+          style={{
+            flex: 1,
+            padding: '8px 12px',
+            fontSize: '11px',
+            fontWeight: 600,
+            border: 'none',
+            background: 'none',
+            borderBottom: activeTab === 'table' ? '2px solid var(--primary)' : '2px solid transparent',
+            color: activeTab === 'table' ? 'var(--primary)' : 'var(--text-muted)',
+            cursor: 'pointer',
+          }}
+        >
+          Data Points
+        </button>
+        <button
+          onClick={() => setActiveTab('meta')}
+          style={{
+            flex: 1,
+            padding: '8px 12px',
+            fontSize: '11px',
+            fontWeight: 600,
+            border: 'none',
+            background: 'none',
+            borderBottom: activeTab === 'meta' ? '2px solid var(--primary)' : '2px solid transparent',
+            color: activeTab === 'meta' ? 'var(--primary)' : 'var(--text-muted)',
+            cursor: 'pointer',
+          }}
+        >
+          Diagnostics
+        </button>
+      </div>
+
       {/* Body */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
         {/* Coordinates & Status */}
@@ -124,70 +195,112 @@ export const ObservationDetailDrawer: React.FC<ObservationDetailDrawerProps> = (
           </div>
         </div>
 
-        {/* Surface Readings */}
-        <div className="grid-cols-3">
-          <div style={{ padding: '8px 10px', backgroundColor: 'var(--bg-surface-secondary)', borderRadius: 'var(--radius-md)', textAlign: 'center' }}>
-            <span style={{ fontSize: '9.5px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Surface Temp</span>
-            <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--primary)', fontFamily: 'var(--font-mono)', marginTop: '2px' }}>
-              {observation.surfaceTemp ? `${observation.surfaceTemp}°C` : '28.92°C'}
-            </div>
+        {/* Tab 1: Profile Chart */}
+        {activeTab === 'profile' && (
+          <div className="space-y-3">
+            {observation.type === 'argo' || observation.type === 'ctd' ? (
+              <VerticalProfileChart
+                data={{
+                  depths: observation.profileData?.depths || depths,
+                  temp: observation.profileData?.temp || temps,
+                  sal: observation.profileData?.sal || sals,
+                  dissolved_o2: observation.profileData?.dissolved_o2,
+                  density: observation.profileData?.density,
+                }}
+                width={386}
+                height={280}
+              />
+            ) : observation.type === 'glider' ? (
+              <SawtoothGliderChart
+                dives={observation.profileData?.sawtooth_dives}
+                width={386}
+                height={220}
+              />
+            ) : observation.type === 'buoy' ? (
+              <BuoyTimeSeriesChart
+                data={observation.timeseriesData}
+                width={386}
+                height={220}
+              />
+            ) : observation.type === 'adcp' ? (
+              <AdcpVelocityProfileChart
+                bins={observation.velocityProfile?.bins}
+                width={386}
+                height={240}
+              />
+            ) : (
+              <VerticalProfileChart
+                data={{ depths, temp: temps, sal: sals }}
+                width={386}
+                height={280}
+              />
+            )}
           </div>
-          <div style={{ padding: '8px 10px', backgroundColor: 'var(--bg-surface-secondary)', borderRadius: 'var(--radius-md)', textAlign: 'center' }}>
-            <span style={{ fontSize: '9.5px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Surface Salinity</span>
-            <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', marginTop: '2px' }}>
-              {observation.surfaceSal ? `${observation.surfaceSal}` : '33.18 PSU'}
-            </div>
-          </div>
-          <div style={{ padding: '8px 10px', backgroundColor: 'var(--bg-surface-secondary)', borderRadius: 'var(--radius-md)', textAlign: 'center' }}>
-            <span style={{ fontSize: '9.5px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Max Depth</span>
-            <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--accent)', fontFamily: 'var(--font-mono)', marginTop: '2px' }}>
-              {observation.maxDepth ? `${observation.maxDepth}m` : '2,000m'}
-            </div>
-          </div>
-        </div>
+        )}
 
-        {/* Depth Profile Table Preview */}
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-            <h4 style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Vertical CTD Hydrographic Profile
-            </h4>
-            <Badge variant="primary" style={{ fontSize: '9px' }}>Assimilated Profile</Badge>
-          </div>
+        {/* Tab 2: Table Data */}
+        {activeTab === 'table' && (
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+              <h4 style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Discrete Vertical Sensor Bins
+              </h4>
+              <Badge variant="primary" style={{ fontSize: '9px' }}>Assimilated</Badge>
+            </div>
 
-          <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
-            <table className="ui-table" style={{ fontSize: '11px' }}>
-              <thead>
-                <tr>
-                  <th style={{ padding: '6px 10px' }}>Depth (dbar)</th>
-                  <th style={{ padding: '6px 10px' }}>Temp (°C)</th>
-                  <th style={{ padding: '6px 10px' }}>Salinity (PSU)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {depths.slice(0, 6).map((d, i) => (
-                  <tr key={i}>
-                    <td style={{ padding: '6px 10px', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{d} m</td>
-                    <td style={{ padding: '6px 10px', fontFamily: 'var(--font-mono)', color: 'var(--primary)' }}>{temps[i] || '--'} °C</td>
-                    <td style={{ padding: '6px 10px', fontFamily: 'var(--font-mono)' }}>{sals[i] || '--'} PSU</td>
+            <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
+              <table className="ui-table" style={{ fontSize: '11px' }}>
+                <thead>
+                  <tr>
+                    <th style={{ padding: '6px 10px' }}>Depth (dbar)</th>
+                    <th style={{ padding: '6px 10px' }}>Temp (°C)</th>
+                    <th style={{ padding: '6px 10px' }}>Salinity (PSU)</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {depths.map((d: number, i: number) => (
+                    <tr key={i}>
+                      <td style={{ padding: '6px 10px', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{d} m</td>
+                      <td style={{ padding: '6px 10px', fontFamily: 'var(--font-mono)', color: '#ff6b6b' }}>
+                        {temps[i] !== undefined ? `${temps[i]} °C` : '--'}
+                      </td>
+                      <td style={{ padding: '6px 10px', fontFamily: 'var(--font-mono)', color: '#0ea5e9' }}>
+                        {sals[i] !== undefined ? `${sals[i]} PSU` : '--'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Metadata Badges */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '11px', color: 'var(--text-muted)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <ShieldCheck className="w-3.5 h-3.5 text-[var(--success)]" />
-            <span>Quality Control: <strong style={{ color: 'var(--text-primary)' }}>QC-1 Real-Time Mode Verified</strong></span>
+        {/* Tab 3: Diagnostics */}
+        {activeTab === 'meta' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '11.5px', color: 'var(--text-secondary)' }}>
+            <div style={{ padding: '10px', backgroundColor: 'var(--bg-surface-secondary)', borderRadius: 'var(--radius-md)' }}>
+              <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: '4px' }}>Quality Control Flags</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--success)' }}>
+                <ShieldCheck className="w-4 h-4" />
+                <span>QC-1 (Good In-Situ Real-Time Mode Data)</span>
+              </div>
+            </div>
+
+            <div style={{ padding: '10px', backgroundColor: 'var(--bg-surface-secondary)', borderRadius: 'var(--radius-md)' }}>
+              <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: '4px' }}>Telemetry & Health</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Clock className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+                <span>Last Transmission: <strong>{observation.lastDate || 'Sep 04, 2026'}</strong></span>
+              </div>
+              {observation.battery && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
+                  <Battery className="w-3.5 h-3.5 text-[var(--warning)]" />
+                  <span>Battery State: <strong>{observation.battery}%</strong></span>
+                </div>
+              )}
+            </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Clock className="w-3.5 h-3.5" />
-            <span>Last Telemetry: <strong style={{ color: 'var(--text-secondary)' }}>{observation.lastDate || 'Just now'}</strong></span>
-          </div>
-        </div>
+        )}
       </div>
 
       {/* Footer Actions */}
@@ -200,15 +313,16 @@ export const ObservationDetailDrawer: React.FC<ObservationDetailDrawerProps> = (
             onClick={() => onCenterCamera(observation.latitude, observation.longitude)}
             style={{ flex: 1 }}
           >
-            Center Camera
+            Center Globe
           </Button>
         )}
-        <Link to="/comparison" style={{ textDecoration: 'none', flex: 1 }}>
+        <Link to={`/comparison?obs=${observation.id}&type=${observation.type}`} style={{ textDecoration: 'none', flex: 1 }}>
           <Button variant="primary" size="sm" leftIcon={<Play className="w-3.5 h-3.5" />} className="w-full">
-            Compare
+            Model Match
           </Button>
         </Link>
       </div>
     </div>
   );
 };
+

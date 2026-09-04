@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Dict
 from datetime import datetime
 
 class ArgoFloatItem(BaseModel):
@@ -16,6 +16,7 @@ class ArgoFloatItem(BaseModel):
     battery_state: float = 95.0
     institution: str = "INCOIS"
     profile_data: Optional[Any] = None
+    cycle_history: Optional[Any] = None
 
     class Config:
         from_attributes = True
@@ -31,6 +32,8 @@ class GliderMissionItem(BaseModel):
     battery_pct: int
     sensors: Optional[str] = None
     status: str
+    trajectory: Optional[Any] = None
+    profile_data: Optional[Any] = None
 
     class Config:
         from_attributes = True
@@ -45,8 +48,11 @@ class MooredBuoyItem(BaseModel):
     air_temp: Optional[float] = None
     wind_speed: Optional[float] = None
     wave_height: Optional[float] = None
+    air_pressure: Optional[float] = None
+    relative_humidity: Optional[float] = None
     status: str
     last_update: datetime
+    timeseries_data: Optional[Any] = None
 
     class Config:
         from_attributes = True
@@ -62,6 +68,7 @@ class CtdCastItem(BaseModel):
     parameters: str
     cruise_date: datetime
     qc_status: str
+    profile_data: Optional[Any] = None
 
     class Config:
         from_attributes = True
@@ -77,6 +84,8 @@ class AdcpStationItem(BaseModel):
     peak_current: float
     max_shear: float
     status: str
+    velocity_profile: Optional[Any] = None
 
     class Config:
         from_attributes = True
+
