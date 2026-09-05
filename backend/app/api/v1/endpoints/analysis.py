@@ -8,6 +8,7 @@ from app.schemas.analysis import (
     ComparisonRequest, ComparisonMetricResponse
 )
 from app.services.ocean_math import compute_ocean_metrics
+from app.services.comparison_engine import ComparisonEngine
 
 router = APIRouter()
 
@@ -57,34 +58,18 @@ def get_saved_workspaces(db: Session = Depends(get_db)):
     ]
 
 # 5. Live Model vs In-Situ Comparison Execution
-@router.post("/comparison", response_model=ComparisonMetricResponse)
-def run_comparison(req: ComparisonRequest = Body(...)):
-    # Benchmark synthetic in-situ vs model series
-    obs_vals = [28.92, 28.85, 27.20, 24.10, 21.00, 16.50, 14.20, 10.10, 6.50, 2.40]
-    # Model predictions with slight simulated variance
-    if req.model == "hycom":
-        pred_vals = [29.04, 28.95, 27.10, 23.85, 20.80, 16.30, 14.30, 10.15, 6.55, 2.45]
-    elif req.model == "roms":
-        pred_vals = [28.90, 28.80, 27.05, 24.00, 20.90, 16.45, 14.15, 10.05, 6.48, 2.38]
-    else: # nemo
-        pred_vals = [29.10, 29.00, 27.35, 24.25, 21.15, 16.65, 14.35, 10.20, 6.60, 2.50]
-
-    metrics = compute_ocean_metrics(obs_vals, pred_vals)
-
-    layer_breakdown = [
-        {"layer": "0 – 50 m (Surface Mixed Layer)", "pairs": 1840, "obsMean": "28.92 °C", "modelMean": "29.04 °C", "rmse": "0.34 °C", "bias": "+0.12 °C", "willmott": "0.978", "status": "High Agreement"},
-        {"layer": "50 – 150 m (Upper Thermocline)", "pairs": 1820, "obsMean": "24.15 °C", "modelMean": "23.88 °C", "rmse": "0.62 °C", "bias": "-0.27 °C", "willmott": "0.945", "status": "Good Agreement"},
-        {"layer": "150 – 300 m (Lower Thermocline)", "pairs": 1790, "obsMean": "17.40 °C", "modelMean": "17.28 °C", "rmse": "0.48 °C", "bias": "-0.12 °C", "willmott": "0.962", "status": "High Agreement"},
-        {"layer": "300 – 500 m (Intermediate Water)", "pairs": 1750, "obsMean": "11.80 °C", "modelMean": "11.84 °C", "rmse": "0.28 °C", "bias": "+0.04 °C", "willmott": "0.985", "status": "High Agreement"},
-    ]
-
-    return ComparisonMetricResponse(
-        mean_bias=metrics["mean_bias"],
-        mae=metrics["mae"],
-        rmse=metrics["rmse"],
-        pearson_r=metrics["pearson_r"],
-        r2_score=metrics["r2_score"],
-        sample_pairs=metrics["sample_pairs"],
-        willmott_index=metrics["willmott_index"],
-        layer_breakdown=layer_breakdown
+@router.post("/comparison")
+def run_comparison(req: ComparisonRequest = Body(...), db: Session = Depends(get_db)):
+    """
+    Runs spatial, temporal, and depth matching between selected model and in-situ observations.
+    Calculates statistical validation metrics, scatter pairs, depth curves, and error histograms.
+    """
+    results = ComparisonEngine.run_comparison_pipeline(
+        model_id=req.model,
+        obs_type=req.observation,
+        variable=req.variable,
+        region=req.region or "indian_ocean",
+        db=db
     )
+    return results
+

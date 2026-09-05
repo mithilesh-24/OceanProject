@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Menu, Globe, Sparkles } from 'lucide-react';
+import { Menu, Globe, Sparkles, Activity, Server, AlertTriangle } from 'lucide-react';
 import { GlobalSearchBar } from './GlobalSearchBar';
 import { RoleSwitcher } from './RoleSwitcher';
 import { UserProfilePopover } from './UserProfilePopover';
@@ -8,6 +8,7 @@ import { ThemeSwitcher } from '../UI/ThemeSwitcher';
 import { Button } from '../UI/Button';
 import { Badge } from '../UI/Badge';
 import { Tooltip } from '../UI/Tooltip';
+import { api, HealthStatus } from '../../services/apiClient';
 
 interface AppHeaderProps {
   onToggleSidebar: () => void;
@@ -15,6 +16,26 @@ interface AppHeaderProps {
 }
 
 export const AppHeader: React.FC<AppHeaderProps> = ({ onToggleSidebar, onOpenDesignSystem }) => {
+  const [health, setHealth] = useState<HealthStatus | null>(null);
+  const [isHealthy, setIsHealthy] = useState<boolean>(true);
+
+  const checkHealth = () => {
+    api.getHealth()
+      .then((data) => {
+        setHealth(data);
+        setIsHealthy(true);
+      })
+      .catch(() => {
+        setIsHealthy(false);
+      });
+  };
+
+  useEffect(() => {
+    checkHealth();
+    const interval = setInterval(checkHealth, 15000); // Check every 15s
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <header className="app-header">
       {/* Left: Hamburger & Brand Logo */}
@@ -60,6 +81,29 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ onToggleSidebar, onOpenDes
 
       {/* Right: Actions */}
       <div className="app-header-right">
+        {/* Real Live Backend Health Indicator */}
+        <Tooltip content={isHealthy ? `FastAPI connected (${health?.database || 'Database'} ready)` : "Backend server offline! Run 'python backend/run_server.py' on port 8000"}>
+          <div
+            onClick={checkHealth}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              padding: '4px 8px',
+              borderRadius: 'var(--radius-md)',
+              backgroundColor: isHealthy ? 'rgba(16, 185, 129, 0.12)' : 'rgba(244, 63, 94, 0.15)',
+              border: `1px solid ${isHealthy ? 'rgba(16, 185, 129, 0.3)' : 'rgba(244, 63, 94, 0.4)'}`,
+              fontSize: '11px',
+              cursor: 'pointer',
+              color: isHealthy ? 'var(--success)' : 'var(--error)',
+              fontWeight: 600
+            }}
+          >
+            {isHealthy ? <Server className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}
+            <span>{isHealthy ? 'FastAPI :8000' : 'Backend Offline'}</span>
+          </div>
+        </Tooltip>
+
         {onOpenDesignSystem && (
           <Tooltip content="Inspect Phase 1 UI Design System Catalog">
             <Button

@@ -12,6 +12,7 @@ from app.api.v1.endpoints.observations import router as observations_router
 from app.api.v1.endpoints.models import router as models_router
 from app.api.v1.endpoints.analysis import router as analysis_router
 from app.api.v1.endpoints.pipelines import router as pipelines_router
+from app.api.v1.endpoints.visualization import router as visualization_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -46,6 +47,7 @@ app.include_router(observations_router, prefix=f"{settings.API_V1_STR}/observati
 app.include_router(models_router, prefix=f"{settings.API_V1_STR}/models", tags=["Numerical Models"])
 app.include_router(analysis_router, prefix=f"{settings.API_V1_STR}/analysis", tags=["Scientific Analytics"])
 app.include_router(pipelines_router, prefix=f"{settings.API_V1_STR}/admin", tags=["Pipeline Administration"])
+app.include_router(visualization_router, prefix=f"{settings.API_V1_STR}/visualization", tags=["3D & 4D Visualization"])
 
 @app.get("/")
 def root_index():

@@ -1,10 +1,10 @@
 /**
  * Bluesphere REST API Client
- * Interfaces frontend views with the FastAPI backend (:8000)
- * Provides typed responses with graceful fallback if the backend server is starting up.
+ * Interfaces frontend views with the FastAPI backend (:8000) via Vite proxy (/api/v1)
+ * Enforces strict backend-frontend live connection integrity with zero silent fallback mocking.
  */
 
-const API_BASE_URL = ((import.meta as any).env?.VITE_API_URL as string) || 'http://127.0.0.1:8000/api/v1';
+const API_BASE_URL = ((import.meta as any).env?.VITE_API_URL as string) || '/api/v1';
 
 export interface HealthStatus {
   status: string;
@@ -139,7 +139,126 @@ export interface ModelTransectData {
   max_val: number;
 }
 
+export interface DepthLayerConfig {
+  depth_m: number;
+  name: string;
+  desc: string;
+  color: string;
+  opacity: number;
+  temp_range: string;
+  sal_range: string;
+  pressure_dbar: number;
+}
+
+export interface TimelineData {
+  start_date: string;
+  end_date: string;
+  total_days: number;
+  recommended_step_hours: number;
+  milestones: Array<{
+    id: string;
+    date: string;
+    label: string;
+    type: string;
+    platform: string;
+  }>;
+  available_variables: string[];
+  depth_layers_count: number;
+}
+
+export interface TimeSnapshotData {
+  timestamp: string;
+  time_progress_pct: number;
+  variable: string;
+  depth_m: number;
+  argo_floats: Array<{
+    wmo_id: string;
+    name: string;
+    lat: number;
+    lon: number;
+    depth_current: number;
+    cycle: number;
+    temp: number;
+    sal: number;
+    status: string;
+    trail: Array<{ lat: number; lon: number; t: number }>;
+  }>;
+  gliders: Array<{
+    id: string;
+    name: string;
+    lat: number;
+    lon: number;
+    dive_depth: number;
+    battery: number;
+    temp: number;
+    sal: number;
+  }>;
+  buoys: Array<{
+    id: string;
+    name: string;
+    lat: number;
+    lon: number;
+    sst: number;
+    wind: number;
+    wave: number;
+  }>;
+  active_platforms_count: number;
+  mean_basin_temp: number;
+  mean_basin_sal: number;
+  current_monsoon_phase: string;
+  wyrtki_jet_velocity: number;
+}
+
 export interface ComparisonResults {
+  model_id?: string;
+  obs_type?: string;
+  variable?: string;
+  var_name?: string;
+  units?: string;
+  region?: string;
+  metrics?: {
+    mean_bias: number;
+    mae: number;
+    rmse: number;
+    pearson_r: number;
+    r2_score: number;
+    willmott_index: number;
+    taylor_skill: number;
+    sample_pairs: number;
+    std_ratio: number;
+    regression_slope: number;
+    regression_intercept: number;
+  };
+  scatter_points?: Array<{
+    obs: number;
+    model: number;
+    error: number;
+  }>;
+  depth_profile?: {
+    depths: number[];
+    obs: Array<{ depth: number; value: number }>;
+    model: Array<{ depth: number; value: number }>;
+    error_ribbon: Array<{ depth: number; model: number; upper: number; lower: number; rmse: number }>;
+  };
+  time_series?: Array<{
+    day: string;
+    obs: number;
+    model: number;
+    residual: number;
+  }>;
+  histogram?: {
+    bins: Array<{
+      bin_start: number;
+      bin_end: number;
+      bin_mid: number;
+      count: number;
+      gaussian_fit: number;
+      label: string;
+    }>;
+    p10_error: number;
+    p50_error: number;
+    p90_error: number;
+  };
   mean_bias: number;
   mae: number;
   rmse: number;
@@ -168,19 +287,24 @@ class ApiClient {
 
   private async fetchJson<T>(endpoint: string, options?: RequestInit): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
-    const response = await fetch(url, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options?.headers,
-      },
-    });
+    try {
+      const response = await fetch(url, {
+        ...options,
+        headers: {
+          'Content-Type': 'application/json',
+          ...options?.headers,
+        },
+      });
 
-    if (!response.ok) {
-      throw new Error(`API error ${response.status}: ${response.statusText}`);
+      if (!response.ok) {
+        throw new Error(`API error ${response.status}: ${response.statusText} for ${endpoint}`);
+      }
+
+      return await response.json();
+    } catch (err: any) {
+      console.error(`[ApiClient Connection Error] Failed to fetch ${url}:`, err);
+      throw new Error(`FastAPI Backend unreachable at ${url}. Ensure the server is running on port 8000.`);
     }
-
-    return response.json();
   }
 
   // Health
@@ -263,74 +387,13 @@ class ApiClient {
     return this.fetchJson<any>(`/observations/adcp/${stationId}`);
   }
 
-  // Models
+  // Numerical Models
   async getModels(): Promise<ModelMetadata[]> {
-    try {
-      return await this.fetchJson<ModelMetadata[]>('/models');
-    } catch {
-      return [
-        {
-          id: 'hycom',
-          name: 'HYCOM 1/12° Global Ocean Model',
-          resolution: '1/12° (~8.5 km)',
-          levels_count: 40,
-          coordinate_type: 'Hybrid (Isopycnal / Sigma / Z-Level)',
-          provider: 'HYCOM Consortium / NOAA NCODA',
-          description: 'Hybrid Coordinate Ocean Model resolving eddy-permitting circulation and thermohaline stratification.',
-          update_frequency: '3-Hourly / Daily',
-          skill_score: 0.964,
-          parameters: { temp_min: -2.0, temp_max: 34.0, sal_min: 25.0, sal_max: 40.0 },
-          layers_metadata: [
-            { layer: 1, depth_m: 0, name: 'Surface' },
-            { layer: 5, depth_m: 25, name: 'Upper Mixed' },
-            { layer: 10, depth_m: 50, name: 'Mixed Layer Base' },
-            { layer: 15, depth_m: 100, name: 'Upper Thermocline' },
-            { layer: 20, depth_m: 200, name: 'Core Thermocline' },
-            { layer: 30, depth_m: 500, name: 'Intermediate' },
-            { layer: 40, depth_m: 2000, name: 'Deep Abyssal' }
-          ]
-        },
-        {
-          id: 'roms',
-          name: 'ROMS Regional Ocean Modeling System',
-          resolution: '1/24° (~4.2 km)',
-          levels_count: 32,
-          coordinate_type: 'Terrain-Following S-Coordinates',
-          provider: 'INCOIS Coastal Modeling Division',
-          description: 'Hydrostatic primitive equation model tailored for coastal upwelling, tidal shelf mixing, and boundary currents.',
-          update_frequency: 'Hourly / Daily',
-          skill_score: 0.978,
-          parameters: { temp_min: 0.0, temp_max: 35.0, sal_min: 20.0, sal_max: 41.0 },
-          layers_metadata: Array.from({ length: 32 }, (_, i) => ({ s_level: i + 1, desc: `Terrain-following layer ${i + 1}` }))
-        },
-        {
-          id: 'nemo',
-          name: 'NEMO Global Ocean Physics',
-          resolution: '1/4° (~28 km)',
-          levels_count: 75,
-          coordinate_type: 'Partial Step z-Star (z*) Coordinates',
-          provider: 'Copernicus Marine / CMEMS',
-          description: 'European community ocean engine simulating global multi-decadal thermohaline circulation.',
-          update_frequency: 'Daily / Monthly',
-          skill_score: 0.952,
-          parameters: { temp_min: -2.5, temp_max: 33.0, sal_min: 28.0, sal_max: 39.0 },
-          layers_metadata: Array.from({ length: 75 }, (_, i) => ({ level: i + 1, depth_range: `Level ${i + 1}` }))
-        }
-      ];
-    }
+    return this.fetchJson<ModelMetadata[]>('/models');
   }
 
   async getModelDetail(modelId: string): Promise<ModelMetadata> {
-    try {
-      return await this.fetchJson<ModelMetadata>(`/models/${modelId}`);
-    } catch {
-      const all = await this.getModels();
-      const found = all.find((m) => m.id === modelId) || all[0];
-      return {
-        ...found,
-        depth_levels: [0, 10, 25, 50, 75, 100, 150, 200, 300, 500, 800, 1000, 1500, 2000, 3000, 4000, 5000]
-      };
-    }
+    return this.fetchJson<ModelMetadata>(`/models/${modelId}`);
   }
 
   async getModelSlice(modelId: string, params: { variable?: string; depth?: number; date?: string }): Promise<ModelSliceData> {
@@ -339,54 +402,7 @@ class ApiClient {
     if (params.depth !== undefined) p.append('depth', params.depth.toString());
     if (params.date) p.append('date', params.date);
     const qs = p.toString() ? `?${p.toString()}` : '';
-    
-    try {
-      return await this.fetchJson<ModelSliceData>(`/models/${modelId}/slice${qs}`);
-    } catch {
-      // Graceful fallback simulation
-      const lats = [0, 3, 6, 9, 12, 15, 18, 21, 24];
-      const lons = [50, 55, 60, 65, 70, 75, 80, 85, 90, 95];
-      const grid: (number | null)[][] = [];
-      const varName = params.variable || 'temperature';
-      const depth = params.depth || 0;
-      const decay = Math.exp(-depth / 400);
-
-      for (let r = 0; r < lats.length; r++) {
-        const row: (number | null)[] = [];
-        for (let c = 0; c < lons.length; c++) {
-          const lat = lats[r];
-          const lon = lons[c];
-          if (lat > 8 && lat < 22 && lon > 72 && lon < 85) {
-            row.push(null);
-          } else if (varName === 'temperature') {
-            const val = 2.0 + (28.5 - 0.05 * lat - 2.0) * decay;
-            row.push(Number(val.toFixed(2)));
-          } else if (varName === 'salinity') {
-            const val = 34.7 + (lon < 70 ? 1.5 : -1.8) * decay;
-            row.push(Number(val.toFixed(2)));
-          } else {
-            const val = Number((0.85 * Math.exp(-lat / 8) * decay).toFixed(2));
-            row.push(val);
-          }
-        }
-        grid.push(row);
-      }
-
-      return {
-        model_id: modelId,
-        variable: varName,
-        depth_m: depth,
-        units: varName === 'temperature' ? '°C' : (varName === 'salinity' ? 'PSU' : 'm/s'),
-        dimensions: { n_lat: lats.length, n_lon: lons.length },
-        latitudes: lats,
-        longitudes: lons,
-        grid_values: grid,
-        min_value: varName === 'temperature' ? 4.0 : 32.0,
-        max_value: varName === 'temperature' ? 29.5 : 36.8,
-        date: params.date || '2026-09-04T12:00:00Z',
-        contour_levels: [20, 22, 24, 26, 28, 29]
-      };
-    }
+    return this.fetchJson<ModelSliceData>(`/models/${modelId}/slice${qs}`);
   }
 
   async getModelProfile(modelId: string, params: { lat: number; lon: number; variable?: string }): Promise<ModelProfileData> {
@@ -395,35 +411,7 @@ class ApiClient {
     p.append('lon', params.lon.toString());
     if (params.variable) p.append('variable', params.variable);
     const qs = `?${p.toString()}`;
-
-    try {
-      return await this.fetchJson<ModelProfileData>(`/models/${modelId}/profile${qs}`);
-    } catch {
-      const depths = [0, 10, 25, 50, 75, 100, 150, 200, 300, 500, 800, 1000, 1500, 2000];
-      const temps = [28.9, 28.8, 28.5, 26.8, 23.4, 20.1, 15.8, 13.5, 11.2, 9.4, 7.5, 5.8, 3.4, 2.2];
-      const sals = [33.2, 33.3, 33.6, 34.2, 34.8, 35.0, 35.1, 35.0, 34.9, 34.8, 34.7, 34.7, 34.7, 34.7];
-      const dens = [21.5, 21.6, 21.9, 22.8, 23.8, 24.9, 26.1, 26.7, 27.1, 27.4, 27.6, 27.8, 27.9, 28.0];
-      const vel = [0.85, 0.82, 0.76, 0.62, 0.45, 0.32, 0.20, 0.14, 0.08, 0.05, 0.03, 0.02, 0.01, 0.01];
-
-      return {
-        model_id: modelId,
-        latitude: params.lat,
-        longitude: params.lon,
-        variable: params.variable || 'temperature',
-        depths,
-        values: params.variable === 'salinity' ? sals : temps,
-        temperature_profile: temps,
-        salinity_profile: sals,
-        density_profile: dens,
-        velocity_profile: vel,
-        mixed_layer_depth_m: 45.0,
-        thermocline_depth_m: 110.0,
-        surface_temp: 28.9,
-        surface_sal: 33.2,
-        bottom_temp: 2.2,
-        units: params.variable === 'salinity' ? 'PSU' : '°C'
-      };
-    }
+    return this.fetchJson<ModelProfileData>(`/models/${modelId}/profile${qs}`);
   }
 
   async getModelTransect(modelId: string, params: { transect?: string; variable?: string }): Promise<ModelTransectData> {
@@ -431,41 +419,10 @@ class ApiClient {
     if (params.transect) p.append('transect', params.transect);
     if (params.variable) p.append('variable', params.variable);
     const qs = p.toString() ? `?${p.toString()}` : '';
-
-    try {
-      return await this.fetchJson<ModelTransectData>(`/models/${modelId}/transect${qs}`);
-    } catch {
-      const depths = [0, 25, 50, 100, 200, 400, 800, 1200, 1600, 2000];
-      const coords = [55, 60, 65, 70, 75, 80, 85, 90, 95];
-      const matrix: number[][] = [];
-
-      for (const d of depths) {
-        const row: number[] = [];
-        for (const c of coords) {
-          const val = Number((2.0 + (28.5 + (c - 70) * 0.05 - 2.0) * Math.exp(-d / 350)).toFixed(2));
-          row.push(val);
-        }
-        matrix.push(row);
-      }
-
-      return {
-        model_id: modelId,
-        transect_name: params.transect || 'equator',
-        title: 'Equatorial Indian Ocean Zonal Transect (0°N, 55°E–95°E)',
-        variable: params.variable || 'temperature',
-        units: '°C',
-        coords_label: 'Longitude (°E)',
-        coords_points: coords,
-        depths,
-        matrix_data: matrix,
-        thermocline_depths: [120, 115, 110, 105, 100, 95, 90, 85, 80],
-        min_val: 2.0,
-        max_val: 29.5
-      };
-    }
+    return this.fetchJson<ModelTransectData>(`/models/${modelId}/transect${qs}`);
   }
 
-  // Analysis
+  // Scientific Analysis & Validation
   async getAccuracy(model?: string, basin?: string): Promise<any[]> {
     const params = new URLSearchParams();
     if (model) params.append('model', model);
@@ -489,13 +446,31 @@ class ApiClient {
     });
   }
 
-  // Pipelines
+  // Pipeline Administration
   async getPipelines(): Promise<any[]> {
     return this.fetchJson<any[]>('/admin/pipelines');
   }
 
   async syncPipeline(id: string): Promise<any> {
     return this.fetchJson<any>(`/admin/sync/${id}`, { method: 'POST' });
+  }
+
+  // 3D & 4D Visualization
+  async getTimeline(): Promise<TimelineData> {
+    return this.fetchJson<TimelineData>('/visualization/timeline');
+  }
+
+  async getDepthLayers(): Promise<DepthLayerConfig[]> {
+    return this.fetchJson<DepthLayerConfig[]>('/visualization/depth-layers');
+  }
+
+  async getSnapshotAtTime(params: { timestamp?: string; variable?: string; depth?: number }): Promise<TimeSnapshotData> {
+    const p = new URLSearchParams();
+    if (params.timestamp) p.append('timestamp', params.timestamp);
+    if (params.variable) p.append('variable', params.variable);
+    if (params.depth !== undefined) p.append('depth', params.depth.toString());
+    const qs = p.toString() ? `?${p.toString()}` : '';
+    return this.fetchJson<TimeSnapshotData>(`/visualization/state-at-time${qs}`);
   }
 }
 
