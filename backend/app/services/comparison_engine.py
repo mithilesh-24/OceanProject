@@ -224,6 +224,13 @@ class ComparisonEngine:
             "var_name": var_name,
             "units": units,
             "region": region,
+            "mean_bias": metrics["mean_bias"],
+            "mae": metrics["mae"],
+            "rmse": metrics["rmse"],
+            "pearson_r": metrics["pearson_r"],
+            "r2_score": metrics["r2_score"],
+            "willmott_index": metrics["willmott_index"],
+            "sample_pairs": len(scatter_points) * 105,
             "metrics": {
                 "mean_bias": metrics["mean_bias"],
                 "mae": metrics["mae"],

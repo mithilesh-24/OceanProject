@@ -50,6 +50,14 @@ class ComparisonRequest(BaseModel):
     region: str = "indian_ocean"
     depth_layer: Optional[str] = "0-500"
 
+class InterComparisonRequest(BaseModel):
+    model_a: str = "hycom"
+    model_b: str = "roms"
+    variable: str = "temperature"
+    depth: float = 0.0
+    region: str = "indian_ocean"
+    transect: Optional[str] = "equator"
+
 class ComparisonMetricResponse(BaseModel):
     mean_bias: float
     mae: float
@@ -59,3 +67,4 @@ class ComparisonMetricResponse(BaseModel):
     sample_pairs: int
     willmott_index: float
     layer_breakdown: List[Dict[str, Any]]
+

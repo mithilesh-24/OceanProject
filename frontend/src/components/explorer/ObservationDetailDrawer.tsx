@@ -96,7 +96,7 @@ export const ObservationDetailDrawer: React.FC<ObservationDetailDrawerProps> = (
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              shrink: 0,
+              flexShrink: 0,
             }}
           >
             <IconComp className="w-4 h-4" />

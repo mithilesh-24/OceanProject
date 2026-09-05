@@ -1,14 +1,15 @@
-from fastapi import APIRouter, Depends, Query, Body
+from fastapi import APIRouter, Depends, Query, Body, HTTPException
 from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.models.analysis import AccuracyMetric, ErrorHotspot, AnomalyAlert, SavedWorkspace
 from app.schemas.analysis import (
     AccuracyMetricItem, ErrorHotspotItem, AnomalyAlertItem,
-    ComparisonRequest, ComparisonMetricResponse
+    ComparisonRequest, InterComparisonRequest, ComparisonMetricResponse
 )
 from app.services.ocean_math import compute_ocean_metrics
 from app.services.comparison_engine import ComparisonEngine
+from app.services.inter_comparison_engine import InterComparisonEngine
 
 router = APIRouter()
 
@@ -72,4 +73,27 @@ def run_comparison(req: ComparisonRequest = Body(...), db: Session = Depends(get
         db=db
     )
     return results
+
+# 6. Live Numerical Model vs Model Inter-Comparison Execution
+@router.post("/inter-comparison")
+def run_inter_comparison(req: InterComparisonRequest = Body(...)):
+    """
+    Runs numerical model vs model inter-comparison across common comparison grid.
+    Calculates 2D difference fields (M1 - M2), RMSD, pattern correlation, depth variance, and transect discrepancy.
+    """
+    try:
+        results = InterComparisonEngine.run_inter_comparison(
+            model_a=req.model_a,
+            model_b=req.model_b,
+            variable=req.variable,
+            depth_m=req.depth,
+            region=req.region,
+            transect_name=req.transect or "equator"
+        )
+        return results
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Inter-comparison engine error: {str(e)}")
+
 

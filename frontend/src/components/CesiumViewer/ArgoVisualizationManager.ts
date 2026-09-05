@@ -86,8 +86,8 @@ export class ArgoVisualizationManager {
 
   constructor(viewer: Cesium.Viewer) {
     this.viewer = viewer;
-    this.billboardCollection = new Cesium.BillboardCollection();
-    this.polylineCollection = new Cesium.PolylineCollection();
+    this.billboardCollection = new Cesium.BillboardCollection({ scene: this.viewer.scene });
+    this.polylineCollection = new Cesium.PolylineCollection({ scene: this.viewer.scene });
     
     this.viewer.scene.primitives.add(this.polylineCollection);
     this.viewer.scene.primitives.add(this.billboardCollection);

@@ -278,6 +278,67 @@ export interface ComparisonResults {
   }>;
 }
 
+export interface InterComparisonResults {
+  model_a: string;
+  model_b: string;
+  variable: string;
+  units: string;
+  depth_m: number;
+  region: string;
+  common_grid: {
+    n_lat: number;
+    n_lon: number;
+    latitudes: number[];
+    longitudes: number[];
+    resolution: string;
+  };
+  metrics: {
+    mean_bias: number;
+    mad: number;
+    rmsd: number;
+    pattern_correlation: number;
+    r2_score: number;
+    variance_ratio: number;
+    max_positive_diff: number;
+    max_negative_diff: number;
+    p10: number;
+    p25: number;
+    p50_median: number;
+    p75: number;
+    p90: number;
+    valid_points_count: number;
+  };
+  difference_grid: (number | null)[][];
+  model_a_grid: (number | null)[][];
+  model_b_grid: (number | null)[][];
+  depth_variance_profile: Array<{
+    depth_m: number;
+    model_a_val: number;
+    model_b_val: number;
+    difference: number;
+    rmsd: number;
+  }>;
+  layer_strata_breakdown: Array<{
+    layer: string;
+    depth_m: number;
+    model_a_mean: string;
+    model_b_mean: string;
+    bias: string;
+    rmsd: string;
+    status: string;
+  }>;
+  transect_comparison: {
+    transect_name: string;
+    title: string;
+    coords_label: string;
+    coords_points: Array<{ name: string; lat: number; lon: number; dist_km: number }>;
+    depths: number[];
+    diff_matrix: number[][];
+    model_a_matrix: number[][];
+    model_b_matrix: number[][];
+  };
+}
+
 class ApiClient {
   private baseUrl: string;
 
@@ -441,6 +502,20 @@ class ApiClient {
 
   async runComparison(params: { model: string; observation: string; variable: string; region?: string }): Promise<ComparisonResults> {
     return this.fetchJson<ComparisonResults>('/analysis/comparison', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  }
+
+  async runModelInterComparison(params: {
+    model_a: string;
+    model_b: string;
+    variable: string;
+    depth?: number;
+    region?: string;
+    transect?: string;
+  }): Promise<InterComparisonResults> {
+    return this.fetchJson<InterComparisonResults>('/analysis/inter-comparison', {
       method: 'POST',
       body: JSON.stringify(params),
     });

@@ -18,10 +18,16 @@ export class DepthLayerVisualizationManager {
     visibleDepths: Set<number>,
     opacity: number
   ) {
+    if (!this.viewer || this.viewer.isDestroyed() || !this.viewer.entities) return;
+
     // Clear old planes that are no longer present or visible
     this.planeEntities.forEach((entity, depth) => {
       if (!visibleDepths.has(depth)) {
-        this.viewer.entities.remove(entity);
+        try {
+          this.viewer.entities.remove(entity);
+        } catch {
+          // safe remove
+        }
         this.planeEntities.delete(depth);
       }
     });
@@ -41,24 +47,28 @@ export class DepthLayerVisualizationManager {
           existing.polygon.material = new Cesium.ColorMaterialProperty(cesiumColor);
         }
       } else {
-        const entity = this.viewer.entities.add({
-          name: `3D Depth Plane: ${layer.name}`,
-          polygon: {
-            hierarchy: Cesium.Cartesian3.fromDegreesArrayHeights([
-              45.0, -10.0, altitudeMeters,
-              100.0, -10.0, altitudeMeters,
-              100.0, 25.0, altitudeMeters,
-              45.0, 25.0, altitudeMeters,
-            ]),
-            material: new Cesium.ColorMaterialProperty(cesiumColor),
-            height: altitudeMeters,
-            extrudedHeight: altitudeMeters - 1000.0,
-            outline: true,
-            outlineColor: Cesium.Color.fromCssColorString(hex).withAlpha(0.8),
-            outlineWidth: 2,
-          }
-        });
-        this.planeEntities.set(layer.depth_m, entity);
+        try {
+          const entity = this.viewer.entities.add({
+            name: `3D Depth Plane: ${layer.name}`,
+            polygon: {
+              hierarchy: Cesium.Cartesian3.fromDegreesArrayHeights([
+                45.0, -10.0, altitudeMeters,
+                100.0, -10.0, altitudeMeters,
+                100.0, 25.0, altitudeMeters,
+                45.0, 25.0, altitudeMeters,
+              ]),
+              material: new Cesium.ColorMaterialProperty(cesiumColor),
+              height: altitudeMeters,
+              extrudedHeight: altitudeMeters - 1000.0,
+              outline: true,
+              outlineColor: Cesium.Color.fromCssColorString(hex).withAlpha(0.8),
+              outlineWidth: 2,
+            },
+          });
+          this.planeEntities.set(layer.depth_m, entity);
+        } catch (err) {
+          console.warn('Depth plane addition notice:', err);
+        }
       }
     });
   }
@@ -69,45 +79,71 @@ export class DepthLayerVisualizationManager {
   public updateVerticalColumnProfiles(
     floats: Array<{ lat: number; lon: number; depth_current: number; name: string }>
   ) {
+    if (!this.viewer || this.viewer.isDestroyed() || !this.viewer.entities) return;
+
     // Clear old trajectory lines
-    this.trajectoryEntities.forEach((ent) => this.viewer.entities.remove(ent));
+    this.trajectoryEntities.forEach((ent) => {
+      try {
+        this.viewer.entities.remove(ent);
+      } catch {
+        // safe remove
+      }
+    });
     this.trajectoryEntities = [];
 
     floats.forEach((f) => {
-      const surfacePos = Cesium.Cartesian3.fromDegrees(f.lon, f.lat, 0);
-      const deepPos = Cesium.Cartesian3.fromDegrees(f.lon, f.lat, -f.depth_current * 25.0);
+      try {
+        const surfacePos = Cesium.Cartesian3.fromDegrees(f.lon, f.lat, 0);
+        const deepPos = Cesium.Cartesian3.fromDegrees(f.lon, f.lat, -f.depth_current * 25.0);
 
-      const lineEntity = this.viewer.entities.add({
-        name: `Profile Column: ${f.name}`,
-        polyline: {
-          positions: [surfacePos, deepPos],
-          width: 3,
-          material: new Cesium.PolylineGlowMaterialProperty({
-            glowPower: 0.25,
-            color: Cesium.Color.fromCssColorString('#00f2fe'),
-          }),
-        },
-      });
-      this.trajectoryEntities.push(lineEntity);
+        const lineEntity = this.viewer.entities.add({
+          name: `Profile Column: ${f.name}`,
+          polyline: {
+            positions: [surfacePos, deepPos],
+            width: 3,
+            material: new Cesium.PolylineGlowMaterialProperty({
+              glowPower: 0.25,
+              color: Cesium.Color.fromCssColorString('#00f2fe'),
+            }),
+          },
+        });
+        this.trajectoryEntities.push(lineEntity);
 
-      // Deep marker point
-      const pointEntity = this.viewer.entities.add({
-        position: deepPos,
-        point: {
-          pixelSize: 8,
-          color: Cesium.Color.fromCssColorString('#ec4899'),
-          outlineColor: Cesium.Color.WHITE,
-          outlineWidth: 2,
-        },
-      });
-      this.trajectoryEntities.push(pointEntity);
+        // Deep marker point
+        const pointEntity = this.viewer.entities.add({
+          position: deepPos,
+          point: {
+            pixelSize: 8,
+            color: Cesium.Color.fromCssColorString('#ec4899'),
+            outlineColor: Cesium.Color.WHITE,
+            outlineWidth: 2,
+          },
+        });
+        this.trajectoryEntities.push(pointEntity);
+      } catch (err) {
+        console.warn('Vertical column addition notice:', err);
+      }
     });
   }
 
   public destroy() {
-    this.planeEntities.forEach((ent) => this.viewer.entities.remove(ent));
+    if (this.viewer && !this.viewer.isDestroyed() && this.viewer.entities) {
+      this.planeEntities.forEach((ent) => {
+        try {
+          this.viewer.entities.remove(ent);
+        } catch {
+          // safe remove
+        }
+      });
+      this.trajectoryEntities.forEach((ent) => {
+        try {
+          this.viewer.entities.remove(ent);
+        } catch {
+          // safe remove
+        }
+      });
+    }
     this.planeEntities.clear();
-    this.trajectoryEntities.forEach((ent) => this.viewer.entities.remove(ent));
     this.trajectoryEntities = [];
   }
 }

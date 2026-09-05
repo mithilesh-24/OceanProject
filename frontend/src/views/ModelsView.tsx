@@ -62,9 +62,9 @@ export const ModelsView: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
-          <Link to="/explorer">
+          <Link to={`/explorer?mode=model&model=${selectedModel}`}>
             <Button variant="outline" size="sm" leftIcon={<Compass className="w-3.5 h-3.5" />}>
-              3D Globe Explorer
+              View on 3D Globe
             </Button>
           </Link>
           <Link to="/comparison">

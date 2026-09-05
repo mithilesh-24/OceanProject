@@ -8,6 +8,8 @@ import { BoundariesManager } from './BoundariesManager';
 import { CloudsManager } from './CloudsManager';
 import { BathymetryManager } from './BathymetryManager';
 import { ArgoVisualizationManager } from './ArgoVisualizationManager';
+import { ModelGridLayerManager, ModelGridConfig } from './ModelGridLayerManager';
+import { ObservationPlatformsManager, PlatformItem } from './ObservationPlatformsManager';
 import { ALL_PLACES, ALL_COUNTRIES, ALL_STATES } from '../../data/naturalEarthIndex';
 
 interface CesiumViewerProps {
@@ -18,9 +20,14 @@ interface CesiumViewerProps {
   argoObservations?: ArgoObservation[];
   argoColorVariable?: ArgoColorVariable;
   selectedArgoFloatId?: string | null;
+  modelGridConfig?: ModelGridConfig | null;
+  platformItems?: PlatformItem[];
+  visiblePlatformTypes?: Set<string>;
+  modelLayerOpacity?: number;
   onCoordinateUpdate: (info: CoordinateInfo) => void;
   onLocationClick: (info: CoordinateInfo & { details?: LocationDetails }) => void;
   onArgoFloatClick?: (obs: ArgoObservation) => void;
+  onPlatformClick?: (platform: PlatformItem) => void;
   onArgoFloatVisibilityChange?: (id: string, isVisible: boolean) => void;
   onMeasurementChange: (value: { type: 'distance' | 'area'; result: string }) => void;
   viewerRefOut?: React.MutableRefObject<Cesium.Viewer | null>;
@@ -34,9 +41,14 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({
   argoObservations = [],
   argoColorVariable = 'temperature',
   selectedArgoFloatId = null,
+  modelGridConfig = null,
+  platformItems = [],
+  visiblePlatformTypes = new Set(['argo', 'glider', 'buoy', 'ctd', 'adcp', 'residual']),
+  modelLayerOpacity = 0.75,
   onCoordinateUpdate,
   onLocationClick,
   onArgoFloatClick,
+  onPlatformClick,
   onArgoFloatVisibilityChange,
   onMeasurementChange,
   viewerRefOut
@@ -52,6 +64,8 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({
   const cloudsManagerRef = useRef<CloudsManager | null>(null);
   const bathymetryManagerRef = useRef<BathymetryManager | null>(null);
   const argoManagerRef = useRef<ArgoVisualizationManager | null>(null);
+  const modelGridManagerRef = useRef<ModelGridLayerManager | null>(null);
+  const platformsManagerRef = useRef<ObservationPlatformsManager | null>(null);
 
   // Measurement state
   const measurePointsRef = useRef<Cesium.Cartesian3[]>([]);
@@ -274,6 +288,8 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({
     cloudsManagerRef.current = new CloudsManager(viewer);
     bathymetryManagerRef.current = new BathymetryManager(viewer);
     argoManagerRef.current = new ArgoVisualizationManager(viewer);
+    modelGridManagerRef.current = new ModelGridLayerManager(viewer);
+    platformsManagerRef.current = new ObservationPlatformsManager(viewer);
 
     // Initial Camera View (Indian Ocean View)
     viewer.camera.setView({
@@ -333,6 +349,15 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({
         if (argoObs && onArgoFloatClick) {
           onArgoFloatClick(argoObs);
           return; // Handled Argo float click!
+        }
+      }
+
+      // Check if a multi-platform observation (Glider, Buoy, CTD, ADCP, Residual) was tapped!
+      if (platformsManagerRef.current) {
+        const platform = platformsManagerRef.current.pickPlatform(click.position);
+        if (platform && onPlatformClick) {
+          onPlatformClick(platform);
+          return;
         }
       }
 
@@ -457,6 +482,8 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({
       cloudsManagerRef.current?.destroy();
       bathymetryManagerRef.current?.destroy();
       argoManagerRef.current?.destroy();
+      modelGridManagerRef.current?.destroy();
+      platformsManagerRef.current?.destroy();
       if (viewer && !viewer.isDestroyed()) {
         viewer.destroy();
       }
@@ -508,6 +535,29 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({
       }
     }
   }, [argoObservations, argoColorVariable, selectedArgoFloatId, layerState.argoFloats]);
+
+  // Handle Numerical Model Slices & Difference Fields on Cesium
+  useEffect(() => {
+    if (modelGridManagerRef.current) {
+      if (modelGridConfig) {
+        modelGridManagerRef.current.setEnabled(true);
+        modelGridManagerRef.current.updateGridLayer({
+          ...modelGridConfig,
+          opacity: modelLayerOpacity,
+        });
+      } else {
+        modelGridManagerRef.current.removeLayer();
+      }
+    }
+  }, [modelGridConfig, modelLayerOpacity]);
+
+  // Handle Multi-Sensor Observation Platforms (Glider, Buoy, CTD, ADCP, Residuals)
+  useEffect(() => {
+    if (platformsManagerRef.current) {
+      platformsManagerRef.current.setVisibleTypes(visiblePlatformTypes);
+      platformsManagerRef.current.setPlatforms(platformItems);
+    }
+  }, [platformItems, visiblePlatformTypes]);
 
   // ═══════════════════════════════════════════
   // Scene Mode Switching (3D / 2D)
