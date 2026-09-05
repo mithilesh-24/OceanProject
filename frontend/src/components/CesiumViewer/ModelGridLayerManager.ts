@@ -93,48 +93,111 @@ export class ModelGridLayerManager {
       }
 
       if (isDifferenceField) {
-        // Divergent: Blue (Model A < Model B) -> Dark Slate (Zero) -> Crimson (Model A > Model B)
-        const maxAbs = Math.max(Math.abs(minVal!), Math.abs(maxVal!), 0.5);
-        const norm = Math.max(-1, Math.min(1, v / maxAbs));
+        // High-contrast Divergent Oceanographic Palette:
+        // Deep Azure (Model A < Model B) <-> Light Neutral (Zero) <-> Vivid Crimson Red (Model A > Model B)
+        let maxAbs = Math.max(Math.abs(minVal!), Math.abs(maxVal!));
+        if (maxAbs < 0.05) maxAbs = 0.05;
 
-        if (norm < 0) {
-          const t = Math.abs(norm);
-          const r = Math.round(15 + (59 - 15) * (1 - t));
-          const g = Math.round(23 + (130 - 23) * t);
-          const b = Math.round(42 + (246 - 42) * t);
-          const a = Math.round(180 + 70 * t);
-          return [r, g, b, a];
+        const rawRatio = v / maxAbs;
+        const sign = Math.sign(rawRatio);
+        // Non-linear gamma boost to make subtle deep/shallow differences clearly visible
+        const mag = Math.min(1.0, Math.pow(Math.abs(rawRatio), 0.75));
+
+        if (sign > 0) {
+          // Positive Difference: The Vivid Red Area (Model A > Model B)
+          if (mag < 0.3) {
+            const u = mag / 0.3;
+            return [
+              Math.round(253 * u + 30 * (1 - u)),
+              Math.round(164 * u + 41 * (1 - u)),
+              Math.round(175 * u + 59 * (1 - u)),
+              Math.round(160 + 50 * u),
+            ];
+          } else if (mag < 0.7) {
+            const u = (mag - 0.3) / 0.4;
+            return [
+              Math.round(239 * (1 - u) + 253 * u),
+              Math.round(68 * (1 - u) + 164 * u),
+              Math.round(68 * (1 - u) + 175 * u),
+              Math.round(210 + 35 * u),
+            ];
+          } else {
+            const u = (mag - 0.7) / 0.3;
+            return [
+              Math.round(220 * (1 - u) + 185 * u),
+              Math.round(38 * (1 - u) + 28 * u),
+              Math.round(38 * (1 - u) + 28 * u),
+              245,
+            ];
+          }
+        } else if (sign < 0) {
+          // Negative Difference: Vibrant Sapphire / Azure (Model A < Model B)
+          if (mag < 0.3) {
+            const u = mag / 0.3;
+            return [
+              Math.round(147 * u + 30 * (1 - u)),
+              Math.round(197 * u + 41 * (1 - u)),
+              Math.round(253 * u + 59 * (1 - u)),
+              Math.round(160 + 50 * u),
+            ];
+          } else if (mag < 0.7) {
+            const u = (mag - 0.3) / 0.4;
+            return [
+              Math.round(37 * (1 - u) + 147 * u),
+              Math.round(99 * (1 - u) + 197 * u),
+              Math.round(235 * (1 - u) + 253 * u),
+              Math.round(210 + 35 * u),
+            ];
+          } else {
+            const u = (mag - 0.7) / 0.3;
+            return [
+              Math.round(29 * (1 - u) + 30 * u),
+              Math.round(78 * (1 - u) + 58 * u),
+              Math.round(216 * (1 - u) + 138 * u),
+              245,
+            ];
+          }
         } else {
-          const t = norm;
-          const r = Math.round(15 + (244 - 15) * t);
-          const g = Math.round(23 + (63 - 23) * (1 - t));
-          const b = Math.round(42 + (94 - 42) * (1 - t));
-          const a = Math.round(180 + 70 * t);
-          return [r, g, b, a];
+          return [30, 41, 59, 120];
         }
       } else {
-        // Scientific Sequential Ocean Palette: Deep Blue -> Cyan -> Amber -> Coral
+        // Vivid Scientific Turbo Palette: Deep Navy -> Cyan -> Emerald -> Gold -> Fiery Scarlet Red
         const range = maxVal! - minVal! || 1.0;
         const t = Math.max(0, Math.min(1, (v - minVal!) / range));
-        let r = 0, g = 0, b = 0;
 
-        if (t < 0.33) {
-          const u = t / 0.33;
-          r = Math.round(10 * (1 - u) + 6 * u);
-          g = Math.round(30 * (1 - u) + 182 * u);
-          b = Math.round(120 * (1 - u) + 212 * u);
-        } else if (t < 0.66) {
-          const u = (t - 0.33) / 0.33;
-          r = Math.round(6 * (1 - u) + 245 * u);
-          g = Math.round(182 * (1 - u) + 158 * u);
-          b = Math.round(212 * (1 - u) + 11 * u);
+        if (t < 0.25) {
+          const u = t / 0.25;
+          return [
+            Math.round(15 * (1 - u) + 6 * u),
+            Math.round(23 * (1 - u) + 182 * u),
+            Math.round(100 * (1 - u) + 212 * u),
+            Math.round(190 + 30 * u),
+          ];
+        } else if (t < 0.5) {
+          const u = (t - 0.25) / 0.25;
+          return [
+            Math.round(6 * (1 - u) + 16 * u),
+            Math.round(182 * (1 - u) + 185 * u),
+            Math.round(212 * (1 - u) + 129 * u),
+            Math.round(220 + 20 * u),
+          ];
+        } else if (t < 0.75) {
+          const u = (t - 0.5) / 0.25;
+          return [
+            Math.round(16 * (1 - u) + 250 * u),
+            Math.round(185 * (1 - u) + 204 * u),
+            Math.round(129 * (1 - u) + 21 * u),
+            240,
+          ];
         } else {
-          const u = (t - 0.66) / 0.34;
-          r = Math.round(245 * (1 - u) + 239 * u);
-          g = Math.round(158 * (1 - u) + 68 * u);
-          b = Math.round(11 * (1 - u) + 68 * u);
+          const u = (t - 0.75) / 0.25;
+          return [
+            Math.round(250 * (1 - u) + 220 * u),
+            Math.round(204 * (1 - u) + 38 * u),
+            Math.round(21 * (1 - u) + 38 * u),
+            245,
+          ];
         }
-        return [r, g, b, 220];
       }
     };
 
@@ -194,6 +257,8 @@ export class ModelGridLayerManager {
       const provider = new Cesium.SingleTileImageryProvider({
         url: dataUrl,
         rectangle,
+        tileWidth: renderWidth,
+        tileHeight: renderHeight,
       });
 
       this.currentImageryLayer = this.viewer.imageryLayers.addImageryProvider(provider);

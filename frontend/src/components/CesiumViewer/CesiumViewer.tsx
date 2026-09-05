@@ -10,6 +10,7 @@ import { BathymetryManager } from './BathymetryManager';
 import { ArgoVisualizationManager } from './ArgoVisualizationManager';
 import { ModelGridLayerManager, ModelGridConfig } from './ModelGridLayerManager';
 import { ObservationPlatformsManager, PlatformItem } from './ObservationPlatformsManager';
+import { OceanCurrentParticlesManager } from './OceanCurrentParticlesManager';
 import { ALL_PLACES, ALL_COUNTRIES, ALL_STATES } from '../../data/naturalEarthIndex';
 
 interface CesiumViewerProps {
@@ -24,6 +25,7 @@ interface CesiumViewerProps {
   platformItems?: PlatformItem[];
   visiblePlatformTypes?: Set<string>;
   modelLayerOpacity?: number;
+  particlesEnabled?: boolean;
   onCoordinateUpdate: (info: CoordinateInfo) => void;
   onLocationClick: (info: CoordinateInfo & { details?: LocationDetails }) => void;
   onArgoFloatClick?: (obs: ArgoObservation) => void;
@@ -45,6 +47,7 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({
   platformItems = [],
   visiblePlatformTypes = new Set(['argo', 'glider', 'buoy', 'ctd', 'adcp', 'residual']),
   modelLayerOpacity = 0.75,
+  particlesEnabled = true,
   onCoordinateUpdate,
   onLocationClick,
   onArgoFloatClick,
@@ -66,6 +69,7 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({
   const argoManagerRef = useRef<ArgoVisualizationManager | null>(null);
   const modelGridManagerRef = useRef<ModelGridLayerManager | null>(null);
   const platformsManagerRef = useRef<ObservationPlatformsManager | null>(null);
+  const particlesManagerRef = useRef<OceanCurrentParticlesManager | null>(null);
 
   // Measurement state
   const measurePointsRef = useRef<Cesium.Cartesian3[]>([]);
@@ -290,6 +294,7 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({
     argoManagerRef.current = new ArgoVisualizationManager(viewer);
     modelGridManagerRef.current = new ModelGridLayerManager(viewer);
     platformsManagerRef.current = new ObservationPlatformsManager(viewer);
+    particlesManagerRef.current = new OceanCurrentParticlesManager(viewer);
 
     // Initial Camera View (Indian Ocean View)
     viewer.camera.setView({
@@ -319,6 +324,11 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({
           heading: Math.round(Cesium.Math.toDegrees(camera.heading || 0)),
           pitch: Math.round(Cesium.Math.toDegrees(camera.pitch || 0)),
         });
+
+        // Trigger dynamic clustering LOD transition based on camera altitude
+        if (argoManagerRef.current) {
+          argoManagerRef.current.updateCameraAltitude(position.height);
+        }
       }
 
       // Recalculate 3D Argo float geographic camera view & horizon visibility
@@ -339,16 +349,29 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({
     handler.setInputAction((click: { position: Cesium.Cartesian2 }) => {
       if (!viewer || viewer.isDestroyed()) return;
 
-      // First check if an Argo Float observation 3D object was tapped/clicked!
+      // First check if an Argo Float observation or Cluster badge was tapped/clicked!
       if (argoManagerRef.current) {
         const pickedObject = scene.pick(click.position);
-        const argoObs = argoManagerRef.current.pickArgoObservation(
+        const argoPick = argoManagerRef.current.pick(
           pickedObject ? (pickedObject.primitive || pickedObject) : null,
           click.position
         );
-        if (argoObs && onArgoFloatClick) {
-          onArgoFloatClick(argoObs);
-          return; // Handled Argo float click!
+        if (argoPick) {
+          if (argoPick.type === 'cluster') {
+            // Smoothly fly into cluster centroid to unpack individual floats!
+            viewer.camera.flyTo({
+              destination: Cesium.Cartesian3.fromDegrees(
+                argoPick.cluster.centroidLon,
+                argoPick.cluster.centroidLat,
+                1600000.0
+              ),
+              duration: 1.2,
+            });
+            return;
+          } else if (argoPick.type === 'float' && onArgoFloatClick) {
+            onArgoFloatClick(argoPick.observation);
+            return; // Handled Argo float click!
+          }
         }
       }
 
@@ -484,6 +507,7 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({
       argoManagerRef.current?.destroy();
       modelGridManagerRef.current?.destroy();
       platformsManagerRef.current?.destroy();
+      particlesManagerRef.current?.destroy();
       if (viewer && !viewer.isDestroyed()) {
         viewer.destroy();
       }
@@ -518,12 +542,13 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({
     boundariesManagerRef.current?.setEnabled(layerState.borders);
     cloudsManagerRef.current?.setEnabled(layerState.clouds);
     bathymetryManagerRef.current?.setEnabled(layerState.bathymetry);
+    particlesManagerRef.current?.setEnabled(particlesEnabled && layerState.oceanCurrents !== false);
 
     const viewer = viewerRef.current;
     if (viewer && !viewer.isDestroyed()) {
       (viewer.scene.globe as any).terrainExaggeration = layerState.terrainExaggeration;
     }
-  }, [layerState]);
+  }, [layerState, particlesEnabled]);
 
   // Handle Argo Observations, Color Variable & Selection Highlights
   useEffect(() => {

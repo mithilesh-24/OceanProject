@@ -71,10 +71,12 @@ export const ThreeDView: React.FC = () => {
   // Synchronize 3D Subsurface planes with Cesium viewer
   useEffect(() => {
     const viewer = viewerRef.current;
-    if (!viewer) return;
+    if (!viewer || viewer.isDestroyed() || !viewer.entities) return;
 
     if (!depthManagerRef.current) {
       depthManagerRef.current = new DepthLayerVisualizationManager(viewer);
+    } else {
+      depthManagerRef.current.setViewer(viewer);
     }
 
     if (depthConfigs.length > 0) {

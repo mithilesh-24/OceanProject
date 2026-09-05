@@ -12,6 +12,7 @@ interface GlobeScientificLegendProps {
   minVal?: number;
   maxVal?: number;
   isDifference?: boolean;
+  leftOffset?: number;
 }
 
 export const GlobeScientificLegend: React.FC<GlobeScientificLegendProps> = ({
@@ -24,6 +25,7 @@ export const GlobeScientificLegend: React.FC<GlobeScientificLegendProps> = ({
   minVal = 10,
   maxVal = 30,
   isDifference = false,
+  leftOffset = 16,
 }) => {
   if (mode === 'observations') {
     return (
@@ -31,7 +33,7 @@ export const GlobeScientificLegend: React.FC<GlobeScientificLegendProps> = ({
         style={{
           position: 'absolute',
           bottom: '48px',
-          left: '16px',
+          left: `${leftOffset}px`,
           zIndex: 25,
           backgroundColor: 'var(--backdrop-panel)',
           backdropFilter: 'var(--backdrop-blur)',
@@ -43,6 +45,7 @@ export const GlobeScientificLegend: React.FC<GlobeScientificLegendProps> = ({
           flexDirection: 'column',
           gap: '8px',
           minWidth: '220px',
+          transition: 'left 200ms cubic-bezier(0.16, 1, 0.3, 1)',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -82,7 +85,7 @@ export const GlobeScientificLegend: React.FC<GlobeScientificLegendProps> = ({
       style={{
         position: 'absolute',
         bottom: '48px',
-        left: '16px',
+        left: `${leftOffset}px`,
         zIndex: 25,
         backgroundColor: 'var(--backdrop-panel)',
         backdropFilter: 'var(--backdrop-blur)',
@@ -94,6 +97,7 @@ export const GlobeScientificLegend: React.FC<GlobeScientificLegendProps> = ({
         flexDirection: 'column',
         gap: '8px',
         minWidth: '240px',
+        transition: 'left 200ms cubic-bezier(0.16, 1, 0.3, 1)',
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>

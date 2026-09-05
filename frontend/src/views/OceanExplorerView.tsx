@@ -59,7 +59,7 @@ const INITIAL_LAYERS: LayerState = {
   bathymetry: false,
   lightingMode: 'readable',
   argoFloats: true,
-  oceanCurrents: false,
+  oceanCurrents: true,
   sst: false,
   salinity: false,
   waveHeight: false,
@@ -450,10 +450,12 @@ export const OceanExplorerView: React.FC = () => {
   // Synchronize 3D Subsurface planes with Cesium
   useEffect(() => {
     const viewer = viewerRef.current;
-    if (!viewer) return;
+    if (!viewer || viewer.isDestroyed() || !viewer.entities) return;
 
     if (!depthManagerRef.current) {
       depthManagerRef.current = new DepthLayerVisualizationManager(viewer);
+    } else {
+      depthManagerRef.current.setViewer(viewer);
     }
 
     if (explorerTab === 'depth_time' && depthConfigs.length > 0) {
@@ -618,6 +620,7 @@ export const OceanExplorerView: React.FC = () => {
         platformItems={platformItems}
         visiblePlatformTypes={visiblePlatformTypes}
         modelLayerOpacity={modelOpacity}
+        particlesEnabled={layerState.oceanCurrents !== false}
         onCoordinateUpdate={setCoordInfo}
         onLocationClick={(info) => {
           setSelectedArgoFloat(null);
@@ -760,8 +763,10 @@ export const OceanExplorerView: React.FC = () => {
           position: 'absolute',
           top: '14px',
           left: '14px',
-          bottom: explorerTab === 'depth_time' ? '120px' : '48px',
-          width: argoSidebarOpen ? '340px' : '44px',
+          bottom: argoSidebarOpen ? (explorerTab === 'depth_time' ? '120px' : '48px') : 'auto',
+          width: argoSidebarOpen ? '340px' : '40px',
+          height: argoSidebarOpen ? 'auto' : '40px',
+          maxHeight: argoSidebarOpen ? 'calc(100% - 70px)' : '40px',
           zIndex: 30,
           backgroundColor: 'var(--backdrop-panel)',
           backdropFilter: 'var(--backdrop-blur)',
@@ -770,7 +775,7 @@ export const OceanExplorerView: React.FC = () => {
           boxShadow: 'var(--shadow-panel)',
           display: 'flex',
           flexDirection: 'column',
-          transition: 'width 200ms cubic-bezier(0.16, 1, 0.3, 1)',
+          transition: 'all 200ms cubic-bezier(0.16, 1, 0.3, 1)',
           overflow: 'hidden',
         }}
       >
@@ -1292,6 +1297,7 @@ export const OceanExplorerView: React.FC = () => {
         minVal={modelGridConfig?.minVal ?? 10}
         maxVal={modelGridConfig?.maxVal ?? 30}
         isDifference={modelGridConfig?.isDifferenceField}
+        leftOffset={argoSidebarOpen ? 368 : 16}
       />
 
       {/* 4D Bottom Timeline Bar (When 3D/4D tab is selected) */}

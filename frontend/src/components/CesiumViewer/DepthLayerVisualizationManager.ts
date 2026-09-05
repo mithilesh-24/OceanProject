@@ -2,12 +2,20 @@ import * as Cesium from 'cesium';
 import { DepthLayerConfig } from '../../services/apiClient';
 
 export class DepthLayerVisualizationManager {
-  private viewer: Cesium.Viewer;
+  private viewer: Cesium.Viewer | null;
   private planeEntities: Map<number, Cesium.Entity> = new Map();
   private trajectoryEntities: Cesium.Entity[] = [];
 
-  constructor(viewer: Cesium.Viewer) {
+  constructor(viewer: Cesium.Viewer | null) {
     this.viewer = viewer;
+  }
+
+  public setViewer(viewer: Cesium.Viewer | null) {
+    if (this.viewer !== viewer) {
+      this.planeEntities.clear();
+      this.trajectoryEntities = [];
+      this.viewer = viewer;
+    }
   }
 
   /**
@@ -20,11 +28,13 @@ export class DepthLayerVisualizationManager {
   ) {
     if (!this.viewer || this.viewer.isDestroyed() || !this.viewer.entities) return;
 
+    const entities = this.viewer.entities;
+
     // Clear old planes that are no longer present or visible
     this.planeEntities.forEach((entity, depth) => {
       if (!visibleDepths.has(depth)) {
         try {
-          this.viewer.entities.remove(entity);
+          entities.remove(entity);
         } catch {
           // safe remove
         }
@@ -48,7 +58,7 @@ export class DepthLayerVisualizationManager {
         }
       } else {
         try {
-          const entity = this.viewer.entities.add({
+          const entity = entities.add({
             name: `3D Depth Plane: ${layer.name}`,
             polygon: {
               hierarchy: Cesium.Cartesian3.fromDegreesArrayHeights([
@@ -81,10 +91,12 @@ export class DepthLayerVisualizationManager {
   ) {
     if (!this.viewer || this.viewer.isDestroyed() || !this.viewer.entities) return;
 
+    const entities = this.viewer.entities;
+
     // Clear old trajectory lines
     this.trajectoryEntities.forEach((ent) => {
       try {
-        this.viewer.entities.remove(ent);
+        entities.remove(ent);
       } catch {
         // safe remove
       }
@@ -96,7 +108,7 @@ export class DepthLayerVisualizationManager {
         const surfacePos = Cesium.Cartesian3.fromDegrees(f.lon, f.lat, 0);
         const deepPos = Cesium.Cartesian3.fromDegrees(f.lon, f.lat, -f.depth_current * 25.0);
 
-        const lineEntity = this.viewer.entities.add({
+        const lineEntity = entities.add({
           name: `Profile Column: ${f.name}`,
           polyline: {
             positions: [surfacePos, deepPos],
@@ -110,7 +122,7 @@ export class DepthLayerVisualizationManager {
         this.trajectoryEntities.push(lineEntity);
 
         // Deep marker point
-        const pointEntity = this.viewer.entities.add({
+        const pointEntity = entities.add({
           position: deepPos,
           point: {
             pixelSize: 8,
@@ -128,16 +140,17 @@ export class DepthLayerVisualizationManager {
 
   public destroy() {
     if (this.viewer && !this.viewer.isDestroyed() && this.viewer.entities) {
+      const entities = this.viewer.entities;
       this.planeEntities.forEach((ent) => {
         try {
-          this.viewer.entities.remove(ent);
+          entities.remove(ent);
         } catch {
           // safe remove
         }
       });
       this.trajectoryEntities.forEach((ent) => {
         try {
-          this.viewer.entities.remove(ent);
+          entities.remove(ent);
         } catch {
           // safe remove
         }
