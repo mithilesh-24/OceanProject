@@ -1,6 +1,8 @@
 import { StructuredCesiumAction, CesiumActionType } from '../services/apiClient';
 
 const ALLOWED_ACTION_TYPES: Set<string> = new Set([
+  'NAVIGATE_ROUTE',
+  'OPEN_VIEW',
   'GO_TO_LOCATION',
   'GO_TO_REGION',
   'SHOW_LAYER',

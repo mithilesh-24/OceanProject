@@ -26,6 +26,8 @@ class CesiumActionType(str, Enum):
     OPEN_PANEL = "OPEN_PANEL"
     SHOW_RESULTS = "SHOW_RESULTS"
     RESET_VIEW = "RESET_VIEW"
+    NAVIGATE_ROUTE = "NAVIGATE_ROUTE"
+    OPEN_VIEW = "OPEN_VIEW"
 
 class StructuredCesiumAction(BaseModel):
     type: CesiumActionType

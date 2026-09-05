@@ -13,6 +13,7 @@ import { ObservationPlatformsManager, PlatformItem } from './ObservationPlatform
 import { OceanCurrentParticlesManager } from './OceanCurrentParticlesManager';
 import { detectGpuCapabilities, applyGpuOptimizationsToViewer } from '../../utils/gpuAcceleration';
 import { ALL_PLACES, ALL_COUNTRIES, ALL_STATES } from '../../data/naturalEarthIndex';
+import { cesiumController } from '../../controllers/cesiumController';
 
 interface CesiumViewerProps {
   layerState: LayerState;
@@ -123,6 +124,8 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({
     if (viewerRefOut) {
       viewerRefOut.current = viewer;
     }
+    // Register authoritative viewer with global Cesium Controller
+    cesiumController.setViewer(viewer);
 
     const scene = viewer.scene;
     const globe = scene.globe;
@@ -454,6 +457,7 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({
       modelGridManagerRef.current?.destroy();
       platformsManagerRef.current?.destroy();
       particlesManagerRef.current?.destroy();
+      cesiumController.clearViewer();
       if (viewer && !viewer.isDestroyed()) {
         viewer.destroy();
       }

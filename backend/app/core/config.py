@@ -31,10 +31,15 @@ class Settings(BaseSettings):
     # LLM Provider Configuration
     LLM_PROVIDER: str = "nvidia"
     NVIDIA_API_KEY: str = ""
+    NVIDIA_API_BASE_URL: str = "https://integrate.api.nvidia.com/v1"
     NVIDIA_MODEL: str = "openai/gpt-oss-20b"
-    NVIDIA_BASE_URL: str = "https://integrate.api.nvidia.com/v1"
     LOCAL_LLM_BASE_URL: str = "http://localhost:8000/v1"
     LOCAL_LLM_MODEL: str = "gpt-oss-20b"
+
+    # Backward compatibility alias
+    @property
+    def NVIDIA_BASE_URL(self) -> str:
+        return self.NVIDIA_API_BASE_URL
 
     model_config = SettingsConfigDict(
         env_file=".env",

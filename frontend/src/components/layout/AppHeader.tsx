@@ -15,13 +15,19 @@ import { api, HealthStatus } from '../../services/apiClient';
 interface AppHeaderProps {
   onToggleSidebar: () => void;
   onOpenDesignSystem?: () => void;
+  isCopilotOpen?: boolean;
+  onToggleCopilot?: () => void;
 }
 
-export const AppHeader: React.FC<AppHeaderProps> = ({ onToggleSidebar, onOpenDesignSystem }) => {
+export const AppHeader: React.FC<AppHeaderProps> = ({ 
+  onToggleSidebar, 
+  onOpenDesignSystem,
+  isCopilotOpen = false,
+  onToggleCopilot
+}) => {
   const [health, setHealth] = useState<HealthStatus | null>(null);
   const [isHealthy, setIsHealthy] = useState<boolean>(true);
   const [isNotificationOpen, setIsNotificationOpen] = useState<boolean>(false);
-  const [isCopilotOpen, setIsCopilotOpen] = useState<boolean>(false);
   const [alertCount, setAlertCount] = useState<number>(3);
 
   const checkHealth = () => {
@@ -110,12 +116,12 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ onToggleSidebar, onOpenDes
         </Tooltip>
 
         {/* Phase 25: AI Ocean Copilot Trigger */}
-        <Tooltip content="Open AI Oceanographic Forecasting Copilot">
+        <Tooltip content={isCopilotOpen ? "Close AI Ocean Copilot" : "Open AI Oceanographic Forecasting Copilot"}>
           <Button
-            variant="outline"
+            variant={isCopilotOpen ? "primary" : "outline"}
             size="sm"
-            onClick={() => setIsCopilotOpen(true)}
-            leftIcon={<Bot className="w-3.5 h-3.5 text-sky" />}
+            onClick={onToggleCopilot}
+            leftIcon={<Bot className="w-3.5 h-3.5" />}
           >
             AI Copilot
           </Button>
@@ -180,12 +186,6 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ onToggleSidebar, onOpenDes
         isOpen={isNotificationOpen}
         onClose={() => setIsNotificationOpen(false)}
         onAlertCountChange={(cnt) => setAlertCount(cnt)}
-      />
-
-      {/* AI Ocean Copilot Right-Side Panel */}
-      <RightSideCopilotPanel
-        isOpen={isCopilotOpen}
-        onClose={() => setIsCopilotOpen(false)}
       />
     </header>
   );

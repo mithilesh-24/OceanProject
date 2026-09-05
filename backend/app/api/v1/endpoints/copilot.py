@@ -26,6 +26,17 @@ def ask_ocean_copilot(payload: CopilotQuery):
     """Legacy query processing for backwards compatibility."""
     return copilot_engine.process_query(payload)
 
+@router.get("/health")
+def get_copilot_health():
+    """
+    Diagnostic health check for AI Copilot provider configuration.
+    Development-safe: never returns API keys or secret tokens.
+    """
+    provider = get_llm_provider()
+    if hasattr(provider, "get_health_status"):
+        return provider.get_health_status()
+    return {"status": "ONLINE", "provider": "configured"}
+
 @router.get("/suggested-prompts", response_model=List[str])
 def get_suggested_prompts():
     """Retrieve curated prompt suggestions."""

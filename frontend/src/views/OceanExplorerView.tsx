@@ -199,6 +199,46 @@ export const OceanExplorerView: React.FC = () => {
     }
   }, [searchParams]);
 
+  // AI Copilot Real-Time Cesium Action Dispatcher
+  useEffect(() => {
+    const handleCopilotAction = (e: any) => {
+      const act = e.detail;
+      const viewer = viewerRef.current;
+      if (!act || !viewer) return;
+
+      if (act.type === 'GO_TO_REGION' || act.type === 'GO_TO_LOCATION') {
+        const payload = act.payload || {};
+        const lat = payload.latitude ?? 16.0;
+        const lon = payload.longitude ?? 64.0;
+        const alt = payload.altitude_m ?? 2200000.0;
+        viewer.camera.flyTo({
+          destination: Cesium.Cartesian3.fromDegrees(lon, lat, alt),
+          orientation: {
+            heading: 0.0,
+            pitch: Cesium.Math.toRadians(-75.0),
+            roll: 0.0,
+          },
+          duration: 2.0,
+        });
+      } else if (act.type === 'SHOW_LAYER') {
+        const layer = act.payload?.layer;
+        if (layer === 'eddies' || layer === 'omz' || layer === 'oceanCurrents' || layer === 'sst' || layer === 'salinity') {
+          setLayerState((prev) => ({ ...prev, [layer]: true }));
+        }
+      } else if (act.type === 'HIDE_LAYER') {
+        const layer = act.payload?.layer;
+        if (layer) {
+          setLayerState((prev) => ({ ...prev, [layer]: false }));
+        }
+      }
+    };
+
+    window.addEventListener('bluesphere:cesium-action' as any, handleCopilotAction);
+    return () => {
+      window.removeEventListener('bluesphere:cesium-action' as any, handleCopilotAction);
+    };
+  }, []);
+
   // ═════════════════════════════════════════════════════
   // LOAD OBSERVATION NETWORK POINTS (LIGHTWEIGHT POINTS ONLY)
   // ═════════════════════════════════════════════════════
