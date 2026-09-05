@@ -193,6 +193,47 @@ export const NAVIGATION_CONFIG: NavSection[] = [
     ],
   },
   {
+    id: 'intelligence',
+    title: 'Marine Intelligence & Forecasts',
+    items: [
+      {
+        id: 'eddies',
+        title: 'Mesoscale Eddies',
+        path: '/eddies',
+        icon: Waves,
+        badge: 'PHASE 26',
+      },
+      {
+        id: 'bgc',
+        title: 'Biogeochemistry & OMZ',
+        path: '/bgc',
+        icon: Activity,
+        badge: 'PHASE 27',
+      },
+      {
+        id: 'routing',
+        title: 'Maritime Weather Routing',
+        path: '/routing',
+        icon: Compass,
+        badge: 'PHASE 28',
+      },
+      {
+        id: 'ml-forecast',
+        title: 'ML Deep Forecast',
+        path: '/ml-forecast',
+        icon: Cpu,
+        badge: 'PHASE 29',
+      },
+      {
+        id: 'disaster-surge',
+        title: 'Cyclone Storm Surge',
+        path: '/disaster-surge',
+        icon: AlertTriangle,
+        badge: 'PHASE 30',
+      },
+    ],
+  },
+  {
     id: 'workspaces',
     title: 'Dedicated Workspaces',
     items: [

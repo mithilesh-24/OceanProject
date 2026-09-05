@@ -9,7 +9,7 @@ import { Button } from '../UI/Button';
 import { Badge } from '../UI/Badge';
 import { Tooltip } from '../UI/Tooltip';
 import { NotificationDrawer } from '../notifications/NotificationDrawer';
-import { OceanCopilotDrawer } from '../copilot/OceanCopilotDrawer';
+import { RightSideCopilotPanel } from '../copilot/RightSideCopilotPanel';
 import { api, HealthStatus } from '../../services/apiClient';
 
 interface AppHeaderProps {
@@ -182,8 +182,8 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ onToggleSidebar, onOpenDes
         onAlertCountChange={(cnt) => setAlertCount(cnt)}
       />
 
-      {/* AI Ocean Copilot Drawer (Phase 25) */}
-      <OceanCopilotDrawer
+      {/* AI Ocean Copilot Right-Side Panel */}
+      <RightSideCopilotPanel
         isOpen={isCopilotOpen}
         onClose={() => setIsCopilotOpen(false)}
       />

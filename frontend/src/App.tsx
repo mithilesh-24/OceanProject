@@ -31,6 +31,13 @@ import { SavedAnalysisView } from './views/SavedAnalysisView';
 import { ExportView } from './views/ExportView';
 import { SettingsView } from './views/SettingsView';
 
+// Phases 26–30 Views
+import { EddyTrackerView } from './views/EddyTrackerView';
+import { BiogeochemistryView } from './views/BiogeochemistryView';
+import { MaritimeRoutingView } from './views/MaritimeRoutingView';
+import { MlForecastView } from './views/MlForecastView';
+import { DisasterSurgeView } from './views/DisasterSurgeView';
+
 export const App: React.FC = () => {
   return (
     <BrowserRouter>
@@ -67,6 +74,13 @@ export const App: React.FC = () => {
           {/* 3D & 4D */}
           <Route path="/3d" element={<ThreeDView />} />
           <Route path="/4d" element={<FourDView />} />
+
+          {/* Phases 26–30 Advanced Intelligence */}
+          <Route path="/eddies" element={<EddyTrackerView />} />
+          <Route path="/bgc" element={<BiogeochemistryView />} />
+          <Route path="/routing" element={<MaritimeRoutingView />} />
+          <Route path="/ml-forecast" element={<MlForecastView />} />
+          <Route path="/disaster-surge" element={<DisasterSurgeView />} />
 
           {/* Workspaces */}
           <Route path="/student" element={<StudentWorkspaceView />} />

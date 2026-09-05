@@ -118,11 +118,11 @@ export const RomsView: React.FC = () => {
             </p>
             <div style={{ marginTop: '12px', padding: '10px', backgroundColor: 'var(--bg-surface-secondary)', borderRadius: 'var(--radius-md)', fontSize: '11.5px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                <span style={{ color: 'var(--text-muted)' }}>Surface Stretching ($\theta_s$):</span>
-                <strong style={{ color: 'var(--text-primary)' }}>6.5 (High Surface Resolution)</strong>
+                <span style={{ color: 'var(--text-muted)' }}>Surface Stretching (theta_s):</span>
+                <span className="font-mono text-text-bright">{(romsConfig as any)?.theta_s ?? '6.5'}</span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--text-muted)' }}>Bottom Stretching ($\theta_b$):</span>
+              <div className="flex justify-between">
+                <span style={{ color: 'var(--text-muted)' }}>Bottom Stretching (theta_b):</span>
                 <strong style={{ color: 'var(--text-primary)' }}>1.8 (Benthic Boundary Layer)</strong>
               </div>
             </div>

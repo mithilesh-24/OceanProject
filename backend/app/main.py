@@ -23,6 +23,11 @@ from app.api.v1.endpoints.cache import router as cache_router
 from app.api.v1.endpoints.adcp_analysis import router as adcp_analysis_router
 from app.api.v1.endpoints.satellite import router as satellite_router
 from app.api.v1.endpoints.copilot import router as copilot_router
+from app.api.v1.endpoints.eddies import router as eddies_router
+from app.api.v1.endpoints.bgc import router as bgc_router
+from app.api.v1.endpoints.routing import router as routing_router
+from app.api.v1.endpoints.ml_forecast import router as ml_forecast_router
+from app.api.v1.endpoints.disaster import router as disaster_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -68,6 +73,11 @@ app.include_router(cache_router, prefix=f"{settings.API_V1_STR}/cache", tags=["C
 app.include_router(adcp_analysis_router, prefix=f"{settings.API_V1_STR}/adcp", tags=["ADCP 3D Vector Fields"])
 app.include_router(satellite_router, prefix=f"{settings.API_V1_STR}/satellite", tags=["Satellite Remote Sensing"])
 app.include_router(copilot_router, prefix=f"{settings.API_V1_STR}/copilot", tags=["AI Ocean Copilot"])
+app.include_router(eddies_router, prefix=f"{settings.API_V1_STR}/eddies", tags=["Mesoscale Eddies"])
+app.include_router(bgc_router, prefix=f"{settings.API_V1_STR}/bgc", tags=["Biogeochemistry & OMZ"])
+app.include_router(routing_router, prefix=f"{settings.API_V1_STR}/routing", tags=["Maritime Weather Routing"])
+app.include_router(ml_forecast_router, prefix=f"{settings.API_V1_STR}/ml-forecast", tags=["ML Deep Ocean Forecast"])
+app.include_router(disaster_router, prefix=f"{settings.API_V1_STR}/disaster", tags=["Disaster & Storm Surge"])
 
 @app.get("/")
 def root_index():

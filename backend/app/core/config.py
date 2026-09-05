@@ -28,6 +28,14 @@ class Settings(BaseSettings):
             return [i.strip() for i in v.split(",") if i.strip()]
         return v
 
+    # LLM Provider Configuration
+    LLM_PROVIDER: str = "nvidia"
+    NVIDIA_API_KEY: str = ""
+    NVIDIA_MODEL: str = "openai/gpt-oss-20b"
+    NVIDIA_BASE_URL: str = "https://integrate.api.nvidia.com/v1"
+    LOCAL_LLM_BASE_URL: str = "http://localhost:8000/v1"
+    LOCAL_LLM_MODEL: str = "gpt-oss-20b"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

@@ -265,6 +265,209 @@ export interface AdcpVectorFieldResponse {
   }>;
 }
 
+// ═══════════════════════════════════════════════════════
+// Phases 26–30 & Agentic Copilot Interfaces
+// ═══════════════════════════════════════════════════════
+export type ProvenanceType = 'OBSERVATION' | 'MODEL_OUTPUT' | 'DERIVED_ANALYSIS' | 'FORECAST' | 'OFFICIAL_ALERT' | 'DEMO_PLACEHOLDER';
+
+export type CesiumActionType =
+  | 'GO_TO_LOCATION'
+  | 'GO_TO_REGION'
+  | 'SHOW_LAYER'
+  | 'HIDE_LAYER'
+  | 'SET_PLATFORM_FILTER'
+  | 'SET_MODEL'
+  | 'SET_VARIABLE'
+  | 'SET_DEPTH'
+  | 'SET_TIME'
+  | 'SELECT_PLATFORM'
+  | 'SELECT_EDDY'
+  | 'RUN_ANALYSIS'
+  | 'OPEN_PANEL'
+  | 'SHOW_RESULTS'
+  | 'RESET_VIEW';
+
+export interface StructuredCesiumAction {
+  type: CesiumActionType;
+  payload: Record<string, any>;
+  description?: string;
+}
+
+export interface ToolCallRecord {
+  tool_name: string;
+  tool_args: Record<string, any>;
+  tool_result?: any;
+  provenance: ProvenanceType;
+  status: 'SUCCESS' | 'DATA_NOT_CONFIGURED' | 'MODEL_NOT_CONFIGURED' | 'OFFICIAL_FEED_NOT_CONFIGURED' | 'ERROR';
+  execution_time_ms: number;
+}
+
+export interface CopilotChatRequest {
+  message: string;
+  history?: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>;
+  context?: {
+    current_route?: string;
+    selected_model?: string;
+    selected_variable?: string;
+    selected_depth?: number;
+    selected_time?: string;
+    selected_platform_id?: string;
+    current_region?: string;
+    enabled_layers?: string[];
+  };
+}
+
+export interface CopilotChatResponse {
+  message: string;
+  structured_actions: StructuredCesiumAction[];
+  tool_calls: ToolCallRecord[];
+  provenance: ProvenanceType;
+  model_provider: string;
+  model_name: string;
+  suggested_prompts: string[];
+}
+
+export interface EddyItem {
+  eddy_id: string;
+  name: string;
+  eddy_type: 'CYCLONIC' | 'ANTICYCLONIC';
+  region: string;
+  center_latitude: number;
+  center_longitude: number;
+  radius_km: number;
+  amplitude_ssh_m: number;
+  max_rotational_velocity_ms: number;
+  rossby_number: number;
+  translation_speed_km_day: number;
+  translation_heading_deg: number;
+  heat_flux_transport_pw: number;
+  salt_flux_transport_kt_s: number;
+  okubo_weiss_min_s2: number;
+  lifetime_days: number;
+  core_temp_anomaly_c: number;
+  core_salinity_anomaly_psu: number;
+  status: string;
+  provenance: ProvenanceType;
+  boundary_points: Array<{ latitude: number; longitude: number }>;
+}
+
+export interface EddiesResponse {
+  timestamp: string;
+  total_detected: number;
+  anticyclonic_count: number;
+  cyclonic_count: number;
+  provenance: ProvenanceType;
+  algorithm: string;
+  eddies: EddyItem[];
+}
+
+export interface BgcParametersResponse {
+  timestamp: string;
+  region: string;
+  provenance: ProvenanceType;
+  metrics: {
+    mean_dissolved_oxygen_umol_kg: number;
+    surface_ph: number;
+    aragonite_saturation_state: number;
+    calcite_saturation_state: number;
+    chlorophyll_a_surface_mg_m3: number;
+    apparent_oxygen_utilization_umol_kg: number;
+    nitrate_phosphate_ratio: number;
+    particulate_organic_carbon_mg_m3: number;
+  };
+  acidification_trend: {
+    decadal_ph_decline: number;
+    aragonite_saturation_horizon_depth_m: number;
+    vulnerability_status: string;
+  };
+  basin_comparisons: Array<{
+    basin: string;
+    surface_do: number;
+    omz_min_do: number;
+    surface_ph: number;
+    omega_arag: number;
+    chla: number;
+    omz_thickness_m: number;
+  }>;
+}
+
+export interface OptimalRouteResponse {
+  origin: string;
+  destination: string;
+  vessel_type: string;
+  provenance: ProvenanceType;
+  great_circle_distance_nm: number;
+  optimized_distance_nm: number;
+  time_saved_hours: number;
+  fuel_saved_tons: number;
+  co2_avoided_tons: number;
+  avg_current_assist_ms: number;
+  peak_wave_height_along_track_m: number;
+  isochrone_waypoints: Array<{
+    seq: number;
+    name: string;
+    latitude: number;
+    longitude: number;
+    dist_nm: number;
+    current_ms: number;
+    wave_height_m: number;
+    course_deg: number;
+  }>;
+  great_circle_track: Array<{ latitude: number; longitude: number }>;
+}
+
+export interface MlForecastPredictionResponse {
+  status: string;
+  provenance: ProvenanceType;
+  model_name: string;
+  checkpoint_expected_path?: string;
+  message: string;
+  timestamp: string;
+  variable: string;
+  lead_time_hours: number;
+  numerical_baseline_available?: boolean;
+  numerical_baseline_model?: string;
+}
+
+export interface DisasterThreatsResponse {
+  timestamp: string;
+  active_systems_count: number;
+  provenance: ProvenanceType;
+  cyclone_system: {
+    system_id: string;
+    name: string;
+    classification: string;
+    provenance: ProvenanceType;
+    official_alert_feed_status: string;
+    feed_disclaimer: string;
+    current_position: { latitude: number; longitude: number };
+    central_pressure_hpa: number;
+    max_sustained_winds_knots: number;
+    max_sustained_winds_kmh: number;
+    forward_motion_speed_kmh: number;
+    forward_motion_heading_deg: number;
+    estimated_peak_surge_m: number;
+    track_forecast: Array<{
+      hour: number;
+      latitude: number;
+      longitude: number;
+      category: string;
+      wind_knots: number;
+      cone_radius_km: number;
+    }>;
+  };
+  coastal_threat_districts: Array<{
+    district: string;
+    threat_level: string;
+    inundation_height_m: number;
+    distance_to_landfall_km: number;
+    evacuation_recommended: boolean;
+    critical_infrastructure: string[];
+    astronomical_tide_phase: string;
+    combined_water_level_m: number;
+  }>;
+}
+
 export interface ComparisonResults {
   model_id?: string;
   obs_type?: string;
@@ -976,8 +1179,92 @@ class ApiClient {
     });
   }
 
+  async chatWithCopilot(payload: CopilotChatRequest): Promise<CopilotChatResponse> {
+    return this.fetchJson<CopilotChatResponse>('/copilot/chat', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
   async getSuggestedPrompts(): Promise<string[]> {
     return this.fetchJson<string[]>('/copilot/suggested-prompts');
+  }
+
+  // Phase 26: Mesoscale Eddies
+  async getEddies(region?: string, eddy_type?: string): Promise<EddiesResponse> {
+    const p = new URLSearchParams();
+    if (region) p.append('region', region);
+    if (eddy_type && eddy_type !== 'ALL') p.append('eddy_type', eddy_type);
+    const qs = p.toString() ? `?${p.toString()}` : '';
+    return this.fetchJson<EddiesResponse>(`/eddies${qs}`);
+  }
+
+  async getEddyKinematics(eddyId: string): Promise<any> {
+    return this.fetchJson<any>(`/eddies/${eddyId}/kinematics`);
+  }
+
+  async getEddyTracks(eddyId?: string): Promise<any[]> {
+    const p = new URLSearchParams();
+    if (eddyId) p.append('eddy_id', eddyId);
+    const qs = p.toString() ? `?${p.toString()}` : '';
+    return this.fetchJson<any[]>(`/eddies/tracks${qs}`);
+  }
+
+  // Phase 27: Biogeochemistry & Carbon Cycle
+  async getBgcParameters(region?: string): Promise<BgcParametersResponse> {
+    const p = new URLSearchParams();
+    if (region) p.append('region', region);
+    const qs = p.toString() ? `?${p.toString()}` : '';
+    return this.fetchJson<BgcParametersResponse>(`/bgc/parameters${qs}`);
+  }
+
+  async getBgcOmz(basin: string = 'arabian_sea', depth_m: number = 200.0): Promise<any> {
+    return this.fetchJson<any>(`/bgc/omz?basin=${basin}&depth_m=${depth_m}`);
+  }
+
+  async getBgcProfile(latitude: number = 18.0, longitude: number = 65.0): Promise<any> {
+    return this.fetchJson<any>(`/bgc/profile?latitude=${latitude}&longitude=${longitude}`);
+  }
+
+  // Phase 28: Maritime Routing
+  async getShippingCorridors(): Promise<any[]> {
+    return this.fetchJson<any[]>('/routing/corridors');
+  }
+
+  async calculateOptimalRoute(params: {
+    origin: string;
+    destination: string;
+    vessel_type?: string;
+    cruise_speed_knots?: number;
+  }): Promise<OptimalRouteResponse> {
+    return this.fetchJson<OptimalRouteResponse>('/routing/optimize', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  }
+
+  // Phase 29: ML Deep Ocean Forecast
+  async getMlPrediction(variable: string = 'temperature', lead_time_hours: number = 24): Promise<MlForecastPredictionResponse> {
+    return this.fetchJson<MlForecastPredictionResponse>(`/ml-forecast/prediction?variable=${variable}&lead_time_hours=${lead_time_hours}`);
+  }
+
+  async getMlMetrics(): Promise<any> {
+    return this.fetchJson<any>('/ml-forecast/metrics');
+  }
+
+  // Phase 30: Disaster Management & Storm Surge
+  async getActiveDisasters(basin?: string): Promise<DisasterThreatsResponse> {
+    const p = new URLSearchParams();
+    if (basin) p.append('basin', basin);
+    const qs = p.toString() ? `?${p.toString()}` : '';
+    return this.fetchJson<DisasterThreatsResponse>(`/disaster/active${qs}`);
+  }
+
+  async getCoastalThreatDetails(district?: string): Promise<any> {
+    const p = new URLSearchParams();
+    if (district) p.append('district', district);
+    const qs = p.toString() ? `?${p.toString()}` : '';
+    return this.fetchJson<any>(`/disaster/coastal-threats${qs}`);
   }
 }
 
