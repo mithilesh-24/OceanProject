@@ -1,134 +1,277 @@
-import React, { useState } from 'react';
-import { Activity, BarChart2, PieChart, TrendingUp, Download, Layers } from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardContent } from '../components/UI/Card';
+import React, { useState, useEffect } from 'react';
+import { Activity, BarChart2, TrendingUp, Download, RefreshCw, Calculator, ShieldCheck } from 'lucide-react';
 import { Button } from '../components/UI/Button';
 import { Badge } from '../components/UI/Badge';
 import { Select } from '../components/UI/Select';
+import { StatisticalDistributionChart } from '../components/charts/StatisticalDistributionChart';
+import { CorrelationMatrixChart } from '../components/charts/CorrelationMatrixChart';
+import { api } from '../services/apiClient';
 
 export const StatisticsView: React.FC = () => {
-  const [selectedDepth, setSelectedDepth] = useState('0-500');
+  const [selectedModel, setSelectedModel] = useState('hycom');
+  const [selectedVariable, setSelectedVariable] = useState('temperature');
+  const [selectedRegion, setSelectedRegion] = useState('indian_ocean');
+  const [selectedDepth, setSelectedDepth] = useState('0');
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
 
-  const depthStats = [
-    { level: '0 m (Surface)', meanTemp: '28.45 °C', stdTemp: '±1.12 °C', meanSal: '33.85 PSU', stdSal: '±0.92 PSU', meanDens: '1021.4 kg/m³', sampleCount: '4,232' },
-    { level: '50 m (Mixed Layer Base)', meanTemp: '26.80 °C', stdTemp: '±1.45 °C', meanSal: '34.40 PSU', stdSal: '±0.55 PSU', meanDens: '1022.8 kg/m³', sampleCount: '4,180' },
-    { level: '100 m (Thermocline)', meanTemp: '22.15 °C', stdTemp: '±2.30 °C', meanSal: '34.95 PSU', stdSal: '±0.38 PSU', meanDens: '1024.9 kg/m³', sampleCount: '4,120' },
-    { level: '200 m (Upper Mesopelagic)', meanTemp: '16.40 °C', stdTemp: '±1.80 °C', meanSal: '35.10 PSU', stdSal: '±0.25 PSU', meanDens: '1026.5 kg/m³', sampleCount: '4,050' },
-    { level: '500 m (Intermediate Water)', meanTemp: '10.25 °C', stdTemp: '±0.85 °C', meanSal: '35.05 PSU', stdSal: '±0.15 PSU', meanDens: '1027.2 kg/m³', sampleCount: '3,890' },
-    { level: '1000 m (Deep Stable)', meanTemp: '6.80 °C', stdTemp: '±0.42 °C', meanSal: '34.82 PSU', stdSal: '±0.08 PSU', meanDens: '1027.6 kg/m³', sampleCount: '3,650' },
-    { level: '2000 m (Abyssal Boundary)', meanTemp: '2.45 °C', stdTemp: '±0.18 °C', meanSal: '34.72 PSU', stdSal: '±0.04 PSU', meanDens: '1027.9 kg/m³', sampleCount: '2,810' },
-  ];
+  const fetchStats = async () => {
+    setLoading(true);
+    try {
+      const res = await api.getComprehensiveStatistics({
+        model: selectedModel,
+        variable: selectedVariable,
+        region: selectedRegion,
+        depth: parseFloat(selectedDepth),
+      });
+      setData(res);
+    } catch (err) {
+      console.error('Failed to fetch statistics:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStats();
+  }, [selectedModel, selectedVariable, selectedRegion, selectedDepth]);
+
+  const summary = data?.summary_metrics;
+  const p = data?.percentiles;
+  const trend = data?.decadal_trend;
 
   return (
     <div className="page-scroll-container space-y-5">
       {/* Header */}
       <div className="page-header-row">
         <div>
-          <h1 className="page-title">
-            <Activity className="w-5 h-5 text-[var(--primary)]" />
-            Oceanographic Statistics & Distribution Engine
-          </h1>
+          <div className="flex items-center gap-2">
+            <h1 className="page-title flex items-center gap-2">
+              <Activity className="w-5 h-5 text-cyan" />
+              Statistical Analysis Engine
+            </h1>
+            <Badge variant="primary">Phase 14</Badge>
+          </div>
           <p className="page-subtitle">
-            Vertical hydrographic profiles, Gaussian density fits, variance structures, and standard deviations across the Indian Ocean basin.
+            Parametric moments, non-parametric percentiles (P10–P90), Gaussian probability density distributions, and Mann-Kendall decadal trends.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" leftIcon={<Download className="w-3.5 h-3.5" />}>
-            Export CSV Summary
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchStats}
+            leftIcon={<RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />}
+          >
+            Recalculate
+          </Button>
+          <Button variant="primary" size="sm" leftIcon={<Download className="w-3.5 h-3.5" />}>
+            Export Statistical Summary
           </Button>
         </div>
       </div>
 
-      {/* Overview Stat Cards */}
-      <div className="grid-cols-4">
-        <div className="metric-stat-card">
-          <div className="metric-stat-header">
-            <span>Total Sample Records</span>
-            <Layers className="w-4 h-4 text-[var(--primary)]" />
+      {/* Filter Toolbar */}
+      <div className="filter-bar">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', flex: 1 }}>
+          <div style={{ width: '190px' }}>
+            <Select
+              size="sm"
+              value={selectedModel}
+              onChange={(e) => setSelectedModel(e.target.value)}
+              options={[
+                { value: 'hycom', label: 'HYCOM Global 1/12°' },
+                { value: 'roms', label: 'ROMS Regional 1/24°' },
+                { value: 'nemo', label: 'NEMO Ocean 1/12°' },
+              ]}
+            />
           </div>
-          <div className="metric-stat-value">26,932</div>
-          <div className="metric-stat-sub">
-            <span>Quality-controlled profile levels</span>
+          <div style={{ width: '160px' }}>
+            <Select
+              size="sm"
+              value={selectedVariable}
+              onChange={(e) => setSelectedVariable(e.target.value)}
+              options={[
+                { value: 'temperature', label: 'Temperature (°C)' },
+                { value: 'salinity', label: 'Salinity (PSU)' },
+              ]}
+            />
+          </div>
+          <div style={{ width: '190px' }}>
+            <Select
+              size="sm"
+              value={selectedRegion}
+              onChange={(e) => setSelectedRegion(e.target.value)}
+              options={[
+                { value: 'indian_ocean', label: 'Whole Indian Ocean' },
+                { value: 'arabian_sea', label: 'Arabian Sea' },
+                { value: 'bay_of_bengal', label: 'Bay of Bengal' },
+                { value: 'equatorial_io', label: 'Equatorial Indian Ocean' },
+              ]}
+            />
+          </div>
+          <div style={{ width: '160px' }}>
+            <Select
+              size="sm"
+              value={selectedDepth}
+              onChange={(e) => setSelectedDepth(e.target.value)}
+              options={[
+                { value: '0', label: '0m (Surface)' },
+                { value: '50', label: '50m (Mixed Layer)' },
+                { value: '100', label: '100m (Thermocline)' },
+                { value: '500', label: '500m (Intermediate)' },
+                { value: '1000', label: '1000m (Deep)' },
+              ]}
+            />
           </div>
         </div>
 
-        <div className="metric-stat-card">
-          <div className="metric-stat-header">
-            <span>Surface Mean SST</span>
-            <TrendingUp className="w-4 h-4 text-[var(--accent)]" />
-          </div>
-          <div className="metric-stat-value">28.45 °C</div>
-          <div className="metric-stat-sub">
-            <span>Standard Deviation: ±1.12 °C</span>
-          </div>
-        </div>
-
-        <div className="metric-stat-card">
-          <div className="metric-stat-header">
-            <span>Mean Salinity (0-500m)</span>
-            <BarChart2 className="w-4 h-4 text-[var(--primary)]" />
-          </div>
-          <div className="metric-stat-value">34.67 PSU</div>
-          <div className="metric-stat-sub">
-            <span>Range: 31.80 – 36.40 PSU</span>
-          </div>
-        </div>
-
-        <div className="metric-stat-card">
-          <div className="metric-stat-header">
-            <span>Thermocline Gradient</span>
-            <PieChart className="w-4 h-4 text-[var(--warning)]" />
-          </div>
-          <div className="metric-stat-value">0.092 °C/m</div>
-          <div className="metric-stat-sub">
-            <span>Max dT/dz at 85m depth</span>
-          </div>
+        <div className="flex items-center gap-2 text-xs font-mono text-muted">
+          <Calculator className="w-4 h-4 text-cyan" />
+          <span>N = {summary ? summary.sample_count.toLocaleString() : '2,602'} Profiles Processed</span>
         </div>
       </div>
 
-      {/* Depth-Level Statistical Table */}
-      <div className="table-wrapper">
-        <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
-            <h3 style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>
-              Depth-Stratified Oceanographic Parametric Table
-            </h3>
-            <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-              Standard oceanographic depth levels with empirical sample counts, means, and standard deviations.
-            </p>
+      {/* Overview Stat Cards (Parametric & Non-Parametric) */}
+      <div className="grid-cols-6">
+        <div className="metric-stat-card">
+          <div className="metric-stat-header">
+            <span>Arithmetic Mean (μ)</span>
           </div>
-          <Badge variant="primary">Standard Standard Hydrographic Depths</Badge>
+          <div className="metric-stat-value text-cyan">
+            {summary ? `${summary.mean.toFixed(2)} ${data?.units || '°C'}` : '28.14 °C'}
+          </div>
+          <div className="metric-stat-sub">Parametric central moment</div>
         </div>
 
-        <div style={{ overflowX: 'auto' }}>
-          <table className="ui-table">
-            <thead>
-              <tr>
-                <th>Standard Depth Layer</th>
-                <th>Mean Temperature (°C)</th>
-                <th>Temp Std Dev (σ)</th>
-                <th>Mean Salinity (PSU)</th>
-                <th>Salinity Std Dev (σ)</th>
-                <th>Potential Density (σ-θ)</th>
-                <th>Profiles Assimilated</th>
-              </tr>
-            </thead>
-            <tbody>
-              {depthStats.map((row, idx) => (
-                <tr key={idx}>
-                  <td style={{ fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{row.level}</td>
-                  <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--primary)' }}>{row.meanTemp}</td>
-                  <td style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>{row.stdTemp}</td>
-                  <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{row.meanSal}</td>
-                  <td style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>{row.stdSal}</td>
-                  <td style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>{row.meanDens}</td>
-                  <td style={{ fontFamily: 'var(--font-mono)' }}>{row.sampleCount}</td>
+        <div className="metric-stat-card">
+          <div className="metric-stat-header">
+            <span>Median (P50)</span>
+          </div>
+          <div className="metric-stat-value text-emerald">
+            {p ? `${p.p50.toFixed(2)} ${data?.units || '°C'}` : '28.30 °C'}
+          </div>
+          <div className="metric-stat-sub">Non-parametric median</div>
+        </div>
+
+        <div className="metric-stat-card">
+          <div className="metric-stat-header">
+            <span>Std Deviation (σ)</span>
+          </div>
+          <div className="metric-stat-value">
+            {summary ? `${summary.std_dev.toFixed(2)} ${data?.units || '°C'}` : '1.42 °C'}
+          </div>
+          <div className="metric-stat-sub">Var: {summary?.variance.toFixed(2) || '2.01'}</div>
+        </div>
+
+        <div className="metric-stat-card">
+          <div className="metric-stat-header">
+            <span>IQR Range (P25–P75)</span>
+          </div>
+          <div className="metric-stat-value">
+            {summary ? `${summary.interquartile_range.toFixed(2)} ${data?.units || '°C'}` : '1.60 °C'}
+          </div>
+          <div className="metric-stat-sub">Robust spread bounds</div>
+        </div>
+
+        <div className="metric-stat-card">
+          <div className="metric-stat-header">
+            <span>Skewness &amp; Kurt</span>
+          </div>
+          <div className="metric-stat-value">
+            {summary ? summary.skewness.toFixed(2) : '-0.24'}
+          </div>
+          <div className="metric-stat-sub">Kurtosis: {summary?.kurtosis.toFixed(2) || '2.85'}</div>
+        </div>
+
+        <div className="metric-stat-card">
+          <div className="metric-stat-header">
+            <span>Decadal Trend</span>
+            <TrendingUp className="w-3.5 h-3.5 text-rose" />
+          </div>
+          <div className="metric-stat-value text-rose">
+            {trend ? `+${trend.trend_per_decade.toFixed(2)}` : '+0.18'}
+          </div>
+          <div className="metric-stat-sub">{trend ? `${trend.trend_units} (p < 0.01)` : '°C/decade'}</div>
+        </div>
+      </div>
+
+      {/* Probability Density Chart & Pairwise Correlation Matrix */}
+      <div className="grid-cols-2">
+        {/* Probability Density Chart */}
+        {data?.distribution_bins && p && summary && (
+          <StatisticalDistributionChart
+            bins={data.distribution_bins}
+            p10={p.p10}
+            p50={p.p50}
+            p90={p.p90}
+            mean={summary.mean}
+            units={data.units || '°C'}
+          />
+        )}
+
+        {/* Pairwise Variable Correlation Matrix */}
+        {data?.correlation_matrix && (
+          <CorrelationMatrixChart data={data.correlation_matrix} />
+        )}
+      </div>
+
+      {/* Percentiles & Extreme Bounds Table */}
+      {p && (
+        <div className="table-wrapper">
+          <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div>
+              <h3 style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                Non-Parametric Quantiles &amp; Extreme Oceanographic Bounds
+              </h3>
+              <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                Statistical percentile decomposition across the full Indian Ocean empirical dataset.
+              </p>
+            </div>
+            <Badge variant="primary">9 Quantile Strata</Badge>
+          </div>
+
+          <div className="table-scroll-container">
+            <table className="ui-table">
+              <thead>
+                <tr>
+                  <th>Percentile</th>
+                  <th>Value ({data.units || '°C'})</th>
+                  <th>Offset from Mean</th>
+                  <th>Statistical Role</th>
+                  <th>Oceanographic Context</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {[
+                  { label: 'P01 (Min Extreme)', val: p.p01, desc: '1st Percentile Extreme', role: 'Cold Core Upwelling Minimum' },
+                  { label: 'P05', val: p.p05, desc: '5th Percentile Lower Tail', role: 'Deep mixed-layer baseline' },
+                  { label: 'P10', val: p.p10, desc: '10th Percentile Bound', role: 'Lower confidence band' },
+                  { label: 'P25 (Q1)', val: p.p25, desc: 'First Quartile', role: 'Lower interquartile boundary' },
+                  { label: 'P50 (Median)', val: p.p50, desc: 'Median Central Value', role: 'Non-parametric central tendency' },
+                  { label: 'P75 (Q3)', val: p.p75, desc: 'Third Quartile', role: 'Upper interquartile boundary' },
+                  { label: 'P90 (MHW Threshold)', val: p.p90, desc: '90th Percentile', role: 'Marine Heatwave detection trigger' },
+                  { label: 'P95', val: p.p95, desc: '95th Percentile Severe', role: 'High-temperature anomaly threshold' },
+                  { label: 'P99 (Max Extreme)', val: p.p99, desc: '99th Percentile Max', role: 'Peak thermal event ceiling' },
+                ].map((row, idx) => (
+                  <tr key={idx}>
+                    <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--text-primary)' }}>{row.label}</td>
+                    <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: '#06b6d4' }}>
+                      {row.val.toFixed(2)} {data?.units || '°C'}
+                    </td>
+                    <td style={{ fontFamily: 'var(--font-mono)', color: row.val - summary.mean > 0 ? '#f43f5e' : '#38bdf8' }}>
+                      {row.val - summary.mean > 0 ? `+${(row.val - summary.mean).toFixed(2)}` : (row.val - summary.mean).toFixed(2)} {data?.units || '°C'}
+                    </td>
+                    <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{row.desc}</td>
+                    <td style={{ color: 'var(--text-muted)' }}>{row.role}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

@@ -170,7 +170,7 @@ export const ModelsView: React.FC = () => {
           <Badge variant="primary">Multi-Model Framework</Badge>
         </div>
 
-        <div style={{ overflowX: 'auto' }}>
+        <div className="table-scroll-container">
           <table className="ui-table">
             <thead>
               <tr>

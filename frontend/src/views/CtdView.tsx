@@ -234,7 +234,7 @@ export const CtdView: React.FC = () => {
           <Badge variant="success">Gold Standard Data</Badge>
         </div>
 
-        <div style={{ overflowX: 'auto' }}>
+        <div className="table-scroll-container">
           <table className="ui-table">
             <thead>
               <tr>

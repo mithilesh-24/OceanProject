@@ -483,7 +483,7 @@ class ApiClient {
     return this.fetchJson<ModelTransectData>(`/models/${modelId}/transect${qs}`);
   }
 
-  // Scientific Analysis & Validation
+  // Scientific Analysis & Validation (Phases 9–14)
   async getAccuracy(model?: string, basin?: string): Promise<any[]> {
     const params = new URLSearchParams();
     if (model) params.append('model', model);
@@ -516,6 +516,60 @@ class ApiClient {
     transect?: string;
   }): Promise<InterComparisonResults> {
     return this.fetchJson<InterComparisonResults>('/analysis/inter-comparison', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  }
+
+  // Phase 11: Accuracy Breakdown & Taylor Coordinates
+  async getAccuracyBreakdown(params: {
+    model?: string;
+    variable?: string;
+    region?: string;
+    season?: string;
+  }): Promise<any> {
+    return this.fetchJson<any>('/analysis/accuracy/breakdown', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  }
+
+  // Phase 12: Spatial 2D Errors, Regional Ranking & Lead-Time Curve
+  async getSpatialTemporalErrors(params: {
+    model?: string;
+    variable?: string;
+    depth?: number;
+    region?: string;
+    time_horizon_days?: number;
+  }): Promise<any> {
+    return this.fetchJson<any>('/analysis/errors/spatial-temporal', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  }
+
+  // Phase 13: Marine Heatwave & Anomaly Detection
+  async detectAnomalies(params: {
+    variable?: string;
+    region?: string;
+    depth?: number;
+    category_filter?: string;
+    mhw_threshold_percentile?: number;
+  }): Promise<any> {
+    return this.fetchJson<any>('/analysis/anomalies/detect', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  }
+
+  // Phase 14: Comprehensive Statistical Engine
+  async getComprehensiveStatistics(params: {
+    model?: string;
+    variable?: string;
+    region?: string;
+    depth?: number;
+  }): Promise<any> {
+    return this.fetchJson<any>('/analysis/statistics/comprehensive', {
       method: 'POST',
       body: JSON.stringify(params),
     });

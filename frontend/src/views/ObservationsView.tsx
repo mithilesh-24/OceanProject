@@ -85,7 +85,7 @@ export const ObservationsView: React.FC = () => {
           <Badge variant="primary">Synchronized Real-Time</Badge>
         </div>
 
-        <div style={{ overflowX: 'auto' }}>
+        <div className="table-scroll-container">
           <table className="ui-table">
             <thead>
               <tr>

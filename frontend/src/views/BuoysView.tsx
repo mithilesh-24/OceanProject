@@ -246,7 +246,7 @@ export const BuoysView: React.FC = () => {
           <Badge variant="primary">INSAT Synchronized</Badge>
         </div>
 
-        <div style={{ overflowX: 'auto' }}>
+        <div className="table-scroll-container">
           <table className="ui-table">
             <thead>
               <tr>

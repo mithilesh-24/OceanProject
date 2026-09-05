@@ -429,7 +429,7 @@ export const ComparisonView: React.FC = () => {
                 <Badge variant="primary">FastAPI Dynamic Interpolator</Badge>
               </div>
 
-              <div style={{ overflowX: 'auto' }}>
+              <div className="table-scroll-container">
                 <table className="ui-table">
                   <thead>
                     <tr>
@@ -650,7 +650,7 @@ export const ComparisonView: React.FC = () => {
                 <Badge variant="primary">FastAPI Dynamic Slicing</Badge>
               </div>
 
-              <div style={{ overflowX: 'auto' }}>
+              <div className="table-scroll-container">
                 <table className="ui-table">
                   <thead>
                     <tr>

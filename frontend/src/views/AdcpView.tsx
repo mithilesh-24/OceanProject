@@ -247,7 +247,7 @@ export const AdcpView: React.FC = () => {
           <Badge variant="success">Broadband Acoustic Stream</Badge>
         </div>
 
-        <div style={{ overflowX: 'auto' }}>
+        <div className="table-scroll-container">
           <table className="ui-table">
             <thead>
               <tr>

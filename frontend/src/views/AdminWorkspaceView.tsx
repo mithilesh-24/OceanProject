@@ -145,7 +145,7 @@ export const AdminWorkspaceView: React.FC = () => {
           <Badge variant="success">All Pipelines Green</Badge>
         </div>
 
-        <div style={{ overflowX: 'auto' }}>
+        <div className="table-scroll-container">
           <table className="ui-table">
             <thead>
               <tr>

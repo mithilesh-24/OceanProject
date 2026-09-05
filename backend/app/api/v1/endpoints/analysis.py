@@ -5,11 +5,16 @@ from app.db.session import get_db
 from app.models.analysis import AccuracyMetric, ErrorHotspot, AnomalyAlert, SavedWorkspace
 from app.schemas.analysis import (
     AccuracyMetricItem, ErrorHotspotItem, AnomalyAlertItem,
-    ComparisonRequest, InterComparisonRequest, ComparisonMetricResponse
+    ComparisonRequest, InterComparisonRequest, ComparisonMetricResponse,
+    AccuracyBreakdownRequest, SpatialErrorRequest, AnomalyDetectionRequest, StatisticalAnalysisRequest
 )
 from app.services.ocean_math import compute_ocean_metrics
 from app.services.comparison_engine import ComparisonEngine
 from app.services.inter_comparison_engine import InterComparisonEngine
+from app.services.accuracy_engine import AccuracyEngine
+from app.services.error_engine import ErrorAnalysisEngine
+from app.services.anomaly_engine import AnomalyDetectionEngine
+from app.services.statistical_engine import StatisticalAnalysisEngine
 
 router = APIRouter()
 
@@ -58,13 +63,9 @@ def get_saved_workspaces(db: Session = Depends(get_db)):
         for w in workspaces
     ]
 
-# 5. Live Model vs In-Situ Comparison Execution
+# 5. Live Model vs In-Situ Comparison Execution (Phase 9)
 @router.post("/comparison")
 def run_comparison(req: ComparisonRequest = Body(...), db: Session = Depends(get_db)):
-    """
-    Runs spatial, temporal, and depth matching between selected model and in-situ observations.
-    Calculates statistical validation metrics, scatter pairs, depth curves, and error histograms.
-    """
     results = ComparisonEngine.run_comparison_pipeline(
         model_id=req.model,
         obs_type=req.observation,
@@ -74,13 +75,9 @@ def run_comparison(req: ComparisonRequest = Body(...), db: Session = Depends(get
     )
     return results
 
-# 6. Live Numerical Model vs Model Inter-Comparison Execution
+# 6. Live Numerical Model vs Model Inter-Comparison Execution (Phase 10)
 @router.post("/inter-comparison")
 def run_inter_comparison(req: InterComparisonRequest = Body(...)):
-    """
-    Runs numerical model vs model inter-comparison across common comparison grid.
-    Calculates 2D difference fields (M1 - M2), RMSD, pattern correlation, depth variance, and transect discrepancy.
-    """
     try:
         results = InterComparisonEngine.run_inter_comparison(
             model_a=req.model_a,
@@ -96,4 +93,60 @@ def run_inter_comparison(req: InterComparisonRequest = Body(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Inter-comparison engine error: {str(e)}")
 
+# 7. Phase 11: Multidimensional Accuracy Breakdown & Taylor Coordinates
+@router.post("/accuracy/breakdown")
+def compute_accuracy_breakdown(req: AccuracyBreakdownRequest = Body(...)):
+    try:
+        results = AccuracyEngine.compute_accuracy_breakdown(
+            model=req.model,
+            variable=req.variable,
+            region=req.region,
+            season=req.season or "all"
+        )
+        return results
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Accuracy engine error: {str(e)}")
 
+# 8. Phase 12: Spatial 2D Errors, Regional Ranking, Outliers & Lead-Time Degradation
+@router.post("/errors/spatial-temporal")
+def compute_spatial_temporal_errors(req: SpatialErrorRequest = Body(...)):
+    try:
+        results = ErrorAnalysisEngine.compute_spatial_temporal_errors(
+            model=req.model,
+            variable=req.variable,
+            depth=req.depth,
+            region=req.region,
+            time_horizon_days=req.time_horizon_days or 10
+        )
+        return results
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error analysis engine error: {str(e)}")
+
+# 9. Phase 13: Oceanographic Anomaly & Marine Heatwave Detection
+@router.post("/anomalies/detect")
+def detect_ocean_anomalies(req: AnomalyDetectionRequest = Body(...)):
+    try:
+        results = AnomalyDetectionEngine.detect_anomalies(
+            variable=req.variable,
+            region=req.region,
+            depth=req.depth,
+            category_filter=req.category_filter or "all",
+            mhw_threshold_percentile=req.mhw_threshold_percentile or 90.0
+        )
+        return results
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Anomaly detection engine error: {str(e)}")
+
+# 10. Phase 14: Comprehensive Statistical Analysis, Trends & Correlation
+@router.post("/statistics/comprehensive")
+def compute_statistics(req: StatisticalAnalysisRequest = Body(...)):
+    try:
+        results = StatisticalAnalysisEngine.compute_comprehensive_statistics(
+            model=req.model,
+            variable=req.variable,
+            region=req.region,
+            depth=req.depth
+        )
+        return results
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Statistical analysis engine error: {str(e)}")

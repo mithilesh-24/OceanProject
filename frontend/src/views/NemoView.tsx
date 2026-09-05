@@ -126,7 +126,7 @@ export const NemoView: React.FC = () => {
           <Badge variant="primary">Standard z-Star Grid</Badge>
         </div>
 
-        <div style={{ overflowX: 'auto' }}>
+        <div className="table-scroll-container">
           <table className="ui-table">
             <thead>
               <tr>

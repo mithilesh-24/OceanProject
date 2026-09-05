@@ -299,7 +299,7 @@ export const ArgoView: React.FC = () => {
           <Badge variant="primary">{filteredFloats.length} Floats Listed</Badge>
         </div>
 
-        <div style={{ overflowX: 'auto' }}>
+        <div className="table-scroll-container">
           <table className="ui-table">
             <thead>
               <tr>

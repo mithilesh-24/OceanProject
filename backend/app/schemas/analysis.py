@@ -68,3 +68,32 @@ class ComparisonMetricResponse(BaseModel):
     willmott_index: float
     layer_breakdown: List[Dict[str, Any]]
 
+# Phase 11: Accuracy Breakdown Request/Response
+class AccuracyBreakdownRequest(BaseModel):
+    model: str = "hycom"
+    variable: str = "temperature"
+    region: str = "indian_ocean"
+    season: Optional[str] = "all"
+
+# Phase 12: Spatial/Temporal Error Request
+class SpatialErrorRequest(BaseModel):
+    model: str = "hycom"
+    variable: str = "temperature"
+    depth: float = 0.0
+    region: str = "indian_ocean"
+    time_horizon_days: int = 10
+
+# Phase 13: Anomaly Detection Request
+class AnomalyDetectionRequest(BaseModel):
+    variable: str = "temperature"
+    region: str = "indian_ocean"
+    depth: float = 0.0
+    category_filter: Optional[str] = "all"
+    mhw_threshold_percentile: float = 90.0
+
+# Phase 14: Comprehensive Statistical Analysis Request
+class StatisticalAnalysisRequest(BaseModel):
+    model: str = "hycom"
+    variable: str = "temperature"
+    region: str = "indian_ocean"
+    depth: float = 0.0

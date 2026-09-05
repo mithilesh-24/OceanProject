@@ -598,7 +598,8 @@ input, button, select, textarea {
 .overflow-hidden { overflow: hidden; }
 
 /* Filter & Scientific Component Utilities */
-.filter-bar {
+.filter-bar,
+.filter-toolbar {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -616,6 +617,142 @@ input, button, select, textarea {
   border-radius: var(--radius-xl);
   overflow: hidden;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.table-scroll-container {
+  width: 100%;
+  max-height: 480px;
+  overflow-x: auto;
+  overflow-y: auto;
+  position: relative;
+  -webkit-overflow-scrolling: touch;
+}
+
+.table-scroll-container::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.table-scroll-container::-webkit-scrollbar-track {
+  background: var(--bg-surface-secondary);
+}
+.table-scroll-container::-webkit-scrollbar-thumb {
+  background: var(--border-hover);
+  border-radius: 4px;
+}
+.table-scroll-container::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* Scientific Analysis Layout Classes */
+.analysis-panel {
+  background-color: var(--bg-surface-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+.analysis-item-card {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: border-color var(--transition-fast), transform var(--transition-fast);
+}
+
+.analysis-item-card:hover {
+  border-color: var(--primary);
+  transform: translateY(-1px);
+}
+
+.chart-wrapper-card {
+  background-color: var(--bg-surface-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Grid helper utilities */
+.grid-cols-5 {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+}
+
+@media (min-width: 768px) {
+  .md-grid-cols-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  .md-grid-cols-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .md-grid-cols-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .md-grid-cols-5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+  .md-grid-cols-6 { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; }
+}
+
+@media (min-width: 1024px) {
+  .lg-grid-cols-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  .lg-grid-cols-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+}
+
+/* Color and indicator helpers */
+.text-rose { color: #f43f5e !important; }
+.text-rose-light { color: #fb7185 !important; }
+.text-emerald { color: #10b981 !important; }
+.text-cyan { color: #06b6d4 !important; }
+.text-amber { color: #f59e0b !important; }
+.text-purple { color: #a855f7 !important; }
+.text-sky { color: #38bdf8 !important; }
+
+.badge-rose {
+  background-color: rgba(244, 63, 94, 0.15);
+  color: #f43f5e;
+  border: 1px solid rgba(244, 63, 94, 0.35);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 10.5px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+}
+
+.badge-emerald {
+  background-color: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 10.5px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+}
+
+.badge-cyan {
+  background-color: rgba(6, 182, 212, 0.15);
+  color: #06b6d4;
+  border: 1px solid rgba(6, 182, 212, 0.35);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 10.5px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+}
+
+.badge-amber {
+  background-color: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 10.5px;
+  font-weight: 700;
+  font-family: var(--font-mono);
 }
 
 .metric-stat-card {
@@ -1051,12 +1188,32 @@ input, button, select, textarea {
 /* ── Scientific Data Tables ── */
 .ui-table-container {
   width: 100%;
+  max-height: 480px;
   overflow-x: auto;
+  overflow-y: auto;
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
   background-color: var(--bg-surface);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+  position: relative;
+  -webkit-overflow-scrolling: touch;
 }
+
+.ui-table-container::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.ui-table-container::-webkit-scrollbar-track {
+  background: var(--bg-surface-secondary);
+}
+.ui-table-container::-webkit-scrollbar-thumb {
+  background: var(--border-hover);
+  border-radius: 4px;
+}
+.ui-table-container::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
 .ui-table {
   width: 100%;
   border-collapse: collapse;
@@ -1075,7 +1232,7 @@ input, button, select, textarea {
   white-space: nowrap;
   position: sticky;
   top: 0;
-  z-index: 5;
+  z-index: 10;
 }
 .ui-table td {
   padding: 12px 16px;

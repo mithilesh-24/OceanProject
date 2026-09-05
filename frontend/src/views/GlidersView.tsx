@@ -211,7 +211,7 @@ export const GlidersView: React.FC = () => {
           <Badge variant="success">Real-Time Telemetry</Badge>
         </div>
 
-        <div style={{ overflowX: 'auto' }}>
+        <div className="table-scroll-container">
           <table className="ui-table">
             <thead>
               <tr>
