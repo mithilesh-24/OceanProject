@@ -84,60 +84,62 @@
 
 :root[data-theme='dark'],
 .dark {
-  /* Strict Dark Theme Palette */
-  --bg-app: #182326;
-  --bg-surface: #202D30;
-  --bg-surface-secondary: #27373A;
-  --bg-surface-hover: #2E4044;
-  --bg-surface-active: #374C51;
+  /* True Black Professional Workstation Palette */
+  --bg-app: #050505;
+  --bg-main: #080808;
+  --bg-surface: #0D0D0D;
+  --bg-surface-secondary: #121212;
+  --bg-surface-hover: #161616;
+  --bg-surface-active: #1E1E1E;
 
-  --primary: #7FAFB3;
-  --primary-hover: #96C1C5;
-  --primary-active: #B0D3D6;
-  --primary-contrast: #102124;
-  --primary-subtle: #1C3337;
+  --primary: #38BDF8;
+  --primary-hover: #0284C7;
+  --primary-active: #0369A1;
+  --primary-contrast: #000000;
+  --primary-subtle: rgba(56, 189, 248, 0.12);
 
-  --secondary: #5F9EA0;
-  --secondary-hover: #75AEB0;
-  --secondary-contrast: #102124;
+  --secondary: #94A3B8;
+  --secondary-hover: #CBD5E1;
+  --secondary-contrast: #000000;
 
-  --accent: #5F9EA0;
-  --accent-hover: #75AEB0;
-  --accent-subtle: #1F383A;
-  --accent-contrast: #102124;
+  --accent: #38BDF8;
+  --accent-hover: #0EA5E9;
+  --accent-subtle: rgba(56, 189, 248, 0.10);
+  --accent-contrast: #000000;
 
-  --text-primary: #E8EEEE;
-  --text-secondary: #C0CDD0;
-  --text-muted: #A7B5B8;
-  --text-disabled: #5E7275;
+  --text-primary: #F5F5F5;
+  --text-secondary: #A3A3A3;
+  --text-muted: #737373;
+  --text-disabled: #525252;
 
-  --border: #354447;
-  --border-subtle: #293639;
-  --border-focus: #7FAFB3;
-  --ring-focus: rgba(127, 175, 179, 0.35);
+  --border: #242424;
+  --border-subtle: #1B1B1B;
+  --border-hover: #333333;
+  --border-focus: #38BDF8;
+  --ring-focus: rgba(56, 189, 248, 0.30);
 
-  --success: #38A169;
-  --success-subtle: #193B28;
+  --success: #10B981;
+  --success-subtle: rgba(16, 185, 129, 0.12);
   --success-contrast: #FFFFFF;
 
-  --warning: #D69E2E;
-  --warning-subtle: #3D2D10;
+  --warning: #F59E0B;
+  --warning-subtle: rgba(245, 158, 11, 0.12);
   --warning-contrast: #FFFFFF;
 
-  --error: #E53E3E;
-  --error-subtle: #3E1B1B;
+  --error: #EF4444;
+  --error-subtle: rgba(239, 68, 68, 0.12);
   --error-contrast: #FFFFFF;
 
-  --info: #4299E1;
-  --info-subtle: #18334E;
+  --info: #38BDF8;
+  --info-subtle: rgba(56, 189, 248, 0.12);
 
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.35);
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.40);
-  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.45);
-  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.50);
-  --shadow-panel: 0 8px 24px rgba(0, 0, 0, 0.60);
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.60);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.70);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.80);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.90);
+  --shadow-panel: 0 8px 24px rgba(0, 0, 0, 0.95);
 
-  --backdrop-panel: rgba(32, 45, 48, 0.95);
+  --backdrop-panel: rgba(13, 13, 13, 0.95);
   --backdrop-blur: blur(8px);
 }
 
@@ -357,12 +359,23 @@ input, button, select, textarea {
 }
 
 .sidebar-nav-item.active {
-  background-color: var(--primary);
-  color: var(--primary-contrast);
+  background-color: var(--primary-subtle);
+  color: var(--primary);
+  border: 1px solid rgba(56, 189, 248, 0.25);
   font-weight: 600;
 }
 
+:root[data-theme='light'] .sidebar-nav-item.active {
+  background-color: var(--primary);
+  color: var(--primary-contrast);
+  border: 1px solid var(--primary);
+}
+
 .sidebar-nav-item.active svg {
+  color: var(--primary) !important;
+}
+
+:root[data-theme='light'] .sidebar-nav-item.active svg {
   color: var(--primary-contrast) !important;
 }
 
@@ -616,14 +629,18 @@ input, button, select, textarea {
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
   overflow: hidden;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--shadow-sm);
   display: flex;
   flex-direction: column;
   width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .table-scroll-container {
   width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   max-height: 480px;
   overflow-x: auto;
   overflow-y: auto;
@@ -632,14 +649,14 @@ input, button, select, textarea {
 }
 
 .table-scroll-container::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 .table-scroll-container::-webkit-scrollbar-track {
   background: var(--bg-surface-secondary);
 }
 .table-scroll-container::-webkit-scrollbar-thumb {
-  background: var(--border-hover);
+  background: var(--border);
   border-radius: 4px;
 }
 .table-scroll-container::-webkit-scrollbar-thumb:hover {
@@ -1188,26 +1205,28 @@ input, button, select, textarea {
 /* ── Scientific Data Tables ── */
 .ui-table-container {
   width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   max-height: 480px;
   overflow-x: auto;
   overflow-y: auto;
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
   background-color: var(--bg-surface);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--shadow-sm);
   position: relative;
   -webkit-overflow-scrolling: touch;
 }
 
 .ui-table-container::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 .ui-table-container::-webkit-scrollbar-track {
   background: var(--bg-surface-secondary);
 }
 .ui-table-container::-webkit-scrollbar-thumb {
-  background: var(--border-hover);
+  background: var(--border);
   border-radius: 4px;
 }
 .ui-table-container::-webkit-scrollbar-thumb:hover {
@@ -1216,30 +1235,36 @@ input, button, select, textarea {
 
 .ui-table {
   width: 100%;
+  min-width: 750px;
   border-collapse: collapse;
   text-align: left;
-  font-size: 12.5px;
+  font-size: 12px;
+  box-sizing: border-box;
 }
 .ui-table th {
   background-color: var(--bg-surface-secondary);
   color: var(--text-muted);
   font-weight: 700;
-  padding: 12px 16px;
+  padding: 10px 14px;
   border-bottom: 1px solid var(--border);
   font-size: 10.5px;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
   white-space: nowrap;
   position: sticky;
   top: 0;
   z-index: 10;
+  height: 38px;
+  box-sizing: border-box;
 }
 .ui-table td {
-  padding: 12px 16px;
+  padding: 10px 14px;
   border-bottom: 1px solid var(--border-subtle);
   color: var(--text-primary);
-  font-size: 12.5px;
+  font-size: 12px;
   white-space: nowrap;
+  height: 42px;
+  box-sizing: border-box;
 }
 .ui-table tr:hover td {
   background-color: var(--bg-surface-hover);

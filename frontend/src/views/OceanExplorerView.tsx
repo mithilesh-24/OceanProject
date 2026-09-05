@@ -17,6 +17,7 @@ import { GlobeScientificLegend } from '../components/CesiumViewer/GlobeScientifi
 import { DepthLayerVisualizationManager } from '../components/CesiumViewer/DepthLayerVisualizationManager';
 import { ModelGridConfig } from '../components/CesiumViewer/ModelGridLayerManager';
 import { PlatformItem } from '../components/CesiumViewer/ObservationPlatformsManager';
+import { GlobePerformanceMonitor } from '../components/CesiumViewer/GlobePerformanceMonitor';
 import { CoordinateInfo, LayerState, LocationDetails, MeasureModeType, Placemark, SceneModeType } from '../types';
 import { ArgoFilterOptions, ArgoObservation } from '../types/argo';
 import { fetchArgoObservations } from '../services/argoService';
@@ -57,7 +58,7 @@ const INITIAL_LAYERS: LayerState = {
   labels: true,
   clouds: false,
   bathymetry: false,
-  lightingMode: 'readable',
+  lightingMode: 'realistic',
   argoFloats: true,
   oceanCurrents: true,
   sst: false,
@@ -154,6 +155,8 @@ export const OceanExplorerView: React.FC = () => {
 
   const viewerRef = useRef<Cesium.Viewer | null>(null);
   const depthManagerRef = useRef<DepthLayerVisualizationManager | null>(null);
+  const detailAbortControllerRef = useRef<AbortController | null>(null);
+  const detailsCacheRef = useRef<Map<string, any>>(new Map());
 
   // Placemarks list
   const [placemarks, setPlacemarks] = useState<Placemark[]>(() => {
@@ -197,90 +200,107 @@ export const OceanExplorerView: React.FC = () => {
   }, [searchParams]);
 
   // ═════════════════════════════════════════════════════
-  // LOAD ALL IN-SITU OBSERVATIONS (ARGO, GLIDER, BUOY, CTD, ADCP)
+  // LOAD OBSERVATION NETWORK POINTS (LIGHTWEIGHT POINTS ONLY)
   // ═════════════════════════════════════════════════════
   const loadObservationsData = useCallback(async () => {
     setIsDataLoading(true);
-    setLoadingLabel('Loading In-Situ Ocean Observation Networks...');
+    setLoadingLabel('Loading In-Situ Ocean Observation Fleet...');
     try {
-      const [argoRes, glidersRes, buoysRes, ctdRes, adcpRes] = await Promise.allSettled([
+      const [argoRes, platformPointsRes] = await Promise.allSettled([
         fetchArgoObservations(argoFilters),
-        api.getGliders(),
-        api.getBuoys(),
-        api.getCtd(),
-        api.getAdcp(),
+        api.getObservationPoints({ platform_types: 'glider,buoy,ctd,adcp' }),
       ]);
-
-      const items: PlatformItem[] = [];
 
       if (argoRes.status === 'fulfilled') {
         setArgoObservations(argoRes.value.observations);
       }
 
-      if (glidersRes.status === 'fulfilled') {
-        glidersRes.value.forEach((g: any) => {
-          items.push({
-            id: `glider_${g.id}`,
-            type: 'glider',
-            name: g.name || `Glider ${g.id}`,
-            latitude: g.latitude,
-            longitude: g.longitude,
-            depth: g.dive_depth,
-            temperature: g.temperature,
-            salinity: g.salinity,
-            battery: g.battery_level,
-            status: g.status,
-            raw: g,
-          });
-        });
-      }
+      const items: PlatformItem[] = [];
 
-      if (buoysRes.status === 'fulfilled') {
-        buoysRes.value.forEach((b: any) => {
+      if (platformPointsRes.status === 'fulfilled' && platformPointsRes.value?.length > 0) {
+        platformPointsRes.value.forEach((pt: any) => {
           items.push({
-            id: `buoy_${b.station_id}`,
-            type: 'buoy',
-            name: `Moored Buoy ${b.station_id} (${b.network})`,
-            latitude: b.latitude,
-            longitude: b.longitude,
-            temperature: b.sea_surface_temp,
-            status: b.status,
-            raw: b,
+            id: `${pt.type}_${pt.id}`,
+            type: pt.type as any,
+            name: pt.name || `${pt.type.toUpperCase()} ${pt.id}`,
+            latitude: pt.latitude,
+            longitude: pt.longitude,
+            depth: pt.depth,
+            temperature: pt.temperature,
+            salinity: pt.salinity,
+            velocity: pt.velocity,
+            battery: pt.battery,
+            status: pt.status || 'Operational',
+            lastDate: pt.lastDate,
           });
         });
-      }
+      } else {
+        // Fallback for platform endpoints
+        const [glidersRes, buoysRes, ctdRes, adcpRes] = await Promise.allSettled([
+          api.getGliders(),
+          api.getBuoys(),
+          api.getCtd(),
+          api.getAdcp(),
+        ]);
 
-      if (ctdRes.status === 'fulfilled') {
-        ctdRes.value.forEach((c: any) => {
-          items.push({
-            id: `ctd_${c.cast_id}`,
-            type: 'ctd',
-            name: `CTD Cast ${c.cast_id} (${c.vessel_name})`,
-            latitude: c.latitude,
-            longitude: c.longitude,
-            depth: c.max_depth_m,
-            temperature: c.surface_temp,
-            salinity: c.surface_salinity,
-            status: 'Completed',
-            raw: c,
+        if (glidersRes.status === 'fulfilled') {
+          glidersRes.value.forEach((g: any) => {
+            items.push({
+              id: `glider_${g.id}`,
+              type: 'glider',
+              name: g.name || `Glider ${g.id}`,
+              latitude: g.latitude,
+              longitude: g.longitude,
+              depth: g.dive_depth,
+              temperature: g.temperature,
+              salinity: g.salinity,
+              battery: g.battery_level,
+              status: g.status,
+            });
           });
-        });
-      }
-
-      if (adcpRes.status === 'fulfilled') {
-        adcpRes.value.forEach((a: any) => {
-          items.push({
-            id: `adcp_${a.station_id}`,
-            type: 'adcp',
-            name: `ADCP Mooring ${a.station_id}`,
-            latitude: a.latitude,
-            longitude: a.longitude,
-            depth: a.mooring_depth_m,
-            velocity: a.surface_current_speed,
-            status: 'Operational',
-            raw: a,
+        }
+        if (buoysRes.status === 'fulfilled') {
+          buoysRes.value.forEach((b: any) => {
+            items.push({
+              id: `buoy_${b.station_id}`,
+              type: 'buoy',
+              name: `Moored Buoy ${b.station_id} (${b.network})`,
+              latitude: b.latitude,
+              longitude: b.longitude,
+              temperature: b.sea_surface_temp,
+              status: b.status,
+            });
           });
-        });
+        }
+        if (ctdRes.status === 'fulfilled') {
+          ctdRes.value.forEach((c: any) => {
+            items.push({
+              id: `ctd_${c.cast_id}`,
+              type: 'ctd',
+              name: `CTD Cast ${c.cast_id} (${c.vessel_name})`,
+              latitude: c.latitude,
+              longitude: c.longitude,
+              depth: c.max_depth_m,
+              temperature: c.surface_temp,
+              salinity: c.surface_salinity,
+              status: 'Completed',
+            });
+          });
+        }
+        if (adcpRes.status === 'fulfilled') {
+          adcpRes.value.forEach((a: any) => {
+            items.push({
+              id: `adcp_${a.station_id}`,
+              type: 'adcp',
+              name: `ADCP Mooring ${a.station_id}`,
+              latitude: a.latitude,
+              longitude: a.longitude,
+              depth: a.mooring_depth_m,
+              velocity: a.surface_current_speed,
+              status: 'Operational',
+            });
+          });
+        }
       }
 
       setPlatformItems(items);
@@ -291,6 +311,7 @@ export const OceanExplorerView: React.FC = () => {
       setLoadingLabel('');
     }
   }, [argoFilters]);
+
 
   useEffect(() => {
     loadObservationsData();
@@ -499,23 +520,27 @@ export const OceanExplorerView: React.FC = () => {
   }, [isTimelinePlaying, timelineSpeed, explorerTab]);
 
   // ═════════════════════════════════════════════════════
-  // PLATFORM & ARGO CLICK HANDLERS (TELEMETRY DRAWER)
+  // PLATFORM & ARGO CLICK HANDLERS (ON-DEMAND TELEMETRY DRAWER)
   // ═════════════════════════════════════════════════════
-  const handleOpenTelemetryDrawer = (obs: ArgoObservation) => {
+  const handleOpenTelemetryDrawer = async (obs: ArgoObservation) => {
+    const rawId = obs.platformNumber ? obs.platformNumber.toString() : obs.id.replace('argo_', '');
+    const cacheKey = `argo_${rawId}`;
+
+    // 1. Instantly open drawer with available point metadata
     setDrawerObservation({
       type: 'argo',
       id: obs.id,
-      title: `Apex Float #${obs.platformNumber}`,
-      subtitle: `Cycle ${obs.cycleNumber} • Indian Ocean Basin`,
+      title: `Apex Float #${rawId}`,
+      subtitle: `Cycle ${obs.cycleNumber || 1} • Indian Ocean Basin`,
       latitude: obs.latitude,
       longitude: obs.longitude,
-      cycle: obs.cycleNumber,
-      lastDate: new Date(obs.time).toISOString().split('T')[0],
-      surfaceTemp: obs.temperature !== null ? Number(obs.temperature.toFixed(2)) : 28.5,
-      surfaceSal: obs.salinity !== null ? Number(obs.salinity.toFixed(2)) : 34.2,
-      maxDepth: obs.depth !== null ? Number(obs.depth.toFixed(0)) : 2000,
+      cycle: obs.cycleNumber || 1,
+      lastDate: obs.time ? new Date(obs.time).toISOString().split('T')[0] : '2026-09-04',
+      surfaceTemp: obs.temperature !== null && obs.temperature !== undefined ? Number(obs.temperature.toFixed(2)) : 28.5,
+      surfaceSal: obs.salinity !== null && obs.salinity !== undefined ? Number(obs.salinity.toFixed(2)) : 34.2,
+      maxDepth: obs.depth !== null && obs.depth !== undefined ? Number(obs.depth.toFixed(0)) : 2000,
       battery: 92,
-      status: 'Active',
+      status: 'Active (Ascending)',
       profileData: {
         depths: [0, 10, 25, 50, 100, 200, 500, 1000, 2000],
         temp: [
@@ -533,9 +558,57 @@ export const OceanExplorerView: React.FC = () => {
         ],
       },
     });
+
+    // 2. Check cache first
+    if (detailsCacheRef.current.has(cacheKey)) {
+      const cached = detailsCacheRef.current.get(cacheKey);
+      setDrawerObservation(cached);
+      return;
+    }
+
+    // 3. On-demand asynchronous request to FastAPI
+    if (detailAbortControllerRef.current) {
+      detailAbortControllerRef.current.abort();
+    }
+    const ac = new AbortController();
+    detailAbortControllerRef.current = ac;
+
+    try {
+      const detail = await api.getArgoFloatDetail(rawId, ac.signal);
+      if (detail) {
+        const enriched: SelectedObservation = {
+          type: 'argo',
+          id: obs.id,
+          title: `Apex Float #${detail.wmo_id}`,
+          subtitle: `${detail.basin} • Cycle ${detail.cycle_number} (${detail.institution})`,
+          latitude: detail.latitude,
+          longitude: detail.longitude,
+          cycle: detail.cycle_number,
+          lastDate: detail.last_transmission ? detail.last_transmission.split('T')[0] : '2026-09-04',
+          surfaceTemp: detail.surface_temp ?? 28.5,
+          surfaceSal: detail.surface_sal ?? 34.2,
+          maxDepth: detail.max_depth ?? 2000,
+          battery: detail.battery_state ?? 92,
+          status: detail.status ?? 'Active',
+          profileData: detail.profile_data || {
+            depths: [0, 10, 25, 50, 100, 200, 500, 1000, 2000],
+            temp: [detail.surface_temp ?? 28.5, 28.2, 27.6, 23.5, 17.2, 12.1, 8.2, 5.1, 2.3],
+            sal: [detail.surface_sal ?? 34.2, 34.3, 34.5, 35.1, 35.2, 35.0, 34.9, 34.8, 34.7],
+          },
+        };
+
+        if (detailsCacheRef.current.size > 50) detailsCacheRef.current.clear();
+        detailsCacheRef.current.set(cacheKey, enriched);
+        setDrawerObservation(enriched);
+      }
+    } catch (err: any) {
+      if (err.name !== 'AbortError') {
+        console.warn('Float detail on-demand notice:', err);
+      }
+    }
   };
 
-  const handlePlatformClick = (platform: PlatformItem) => {
+  const handlePlatformClick = async (platform: PlatformItem) => {
     if (platform.type === 'residual') {
       setClickedLocation({
         latitude: platform.latitude,
@@ -553,11 +626,15 @@ export const OceanExplorerView: React.FC = () => {
       return;
     }
 
+    const rawId = platform.id.replace(/^(glider|buoy|ctd|adcp|argo)_/, '');
+    const cacheKey = `${platform.type}_${rawId}`;
+
+    // 1. Open drawer immediately with point metadata
     setDrawerObservation({
       type: platform.type,
       id: platform.id,
       title: platform.name,
-      subtitle: `${platform.type.toUpperCase()} Station • Indian Ocean Domain`,
+      subtitle: `${platform.type.toUpperCase()} Platform • Indian Ocean Domain`,
       latitude: platform.latitude,
       longitude: platform.longitude,
       surfaceTemp: platform.temperature ?? '28.4',
@@ -571,7 +648,63 @@ export const OceanExplorerView: React.FC = () => {
         sal: [34.1, 34.3, 34.8, 35.1, 35.0, 34.9, 34.7],
       },
     });
+
+    // 2. Check cache
+    if (detailsCacheRef.current.has(cacheKey)) {
+      setDrawerObservation(detailsCacheRef.current.get(cacheKey));
+      return;
+    }
+
+    // 3. On-demand asynchronous request to FastAPI
+    if (detailAbortControllerRef.current) {
+      detailAbortControllerRef.current.abort();
+    }
+    const ac = new AbortController();
+    detailAbortControllerRef.current = ac;
+
+    try {
+      let detail: any = null;
+      if (platform.type === 'glider') {
+        detail = await api.getGliderDetail(rawId, ac.signal);
+      } else if (platform.type === 'buoy') {
+        detail = await api.getBuoyDetail(rawId, ac.signal);
+      } else if (platform.type === 'ctd') {
+        detail = await api.getCtdDetail(rawId, ac.signal);
+      } else if (platform.type === 'adcp') {
+        detail = await api.getAdcpDetail(rawId, ac.signal);
+      }
+
+      if (detail) {
+        const enriched: SelectedObservation = {
+          type: platform.type,
+          id: platform.id,
+          title: detail.name || detail.platform_name || detail.location_name || detail.station_name || platform.name,
+          subtitle: `${platform.type.toUpperCase()} • ${detail.status || 'Active'}`,
+          latitude: detail.latitude ?? platform.latitude,
+          longitude: detail.longitude ?? platform.longitude,
+          surfaceTemp: detail.sst ?? detail.surface_temp ?? platform.temperature ?? '28.4',
+          surfaceSal: detail.surface_sal ?? detail.surface_salinity ?? platform.salinity ?? '34.5',
+          maxDepth: detail.max_depth ?? detail.depth_range ?? platform.depth ?? '1000',
+          battery: detail.battery_pct ?? detail.battery_state ?? platform.battery ?? '94%',
+          status: detail.status ?? 'Operational',
+          profileData: detail.profile_data || {
+            depths: [0, 25, 50, 100, 200, 500, 1000],
+            temp: [28.8, 28.5, 26.1, 20.4, 15.1, 10.2, 6.4],
+            sal: [34.1, 34.3, 34.8, 35.1, 35.0, 34.9, 34.7],
+          },
+        };
+
+        if (detailsCacheRef.current.size > 50) detailsCacheRef.current.clear();
+        detailsCacheRef.current.set(cacheKey, enriched);
+        setDrawerObservation(enriched);
+      }
+    } catch (err: any) {
+      if (err.name !== 'AbortError') {
+        console.warn('Platform detail on-demand notice:', err);
+      }
+    }
   };
+
 
   const handleTogglePlatformType = (type: string) => {
     setVisiblePlatformTypes((prev) => {
@@ -629,6 +762,7 @@ export const OceanExplorerView: React.FC = () => {
         onArgoFloatClick={(obs) => {
           setSelectedArgoFloat(obs);
           setClickedLocation(null);
+          handleOpenTelemetryDrawer(obs);
         }}
         onPlatformClick={handlePlatformClick}
         onArgoFloatVisibilityChange={(id, isVisible) => {
@@ -638,6 +772,13 @@ export const OceanExplorerView: React.FC = () => {
         }}
         onMeasurementChange={({ result }) => setMeasurementResult(result)}
         viewerRefOut={viewerRef}
+      />
+
+      {/* Real-Time GIS Rendering Performance Telemetry HUD */}
+      <GlobePerformanceMonitor
+        viewer={viewerRef.current}
+        particleCount={layerState.oceanCurrents !== false ? 1800 : 0}
+        observationCount={argoObservations.length + platformItems.length}
       />
 
       {/* Non-Blocking Data Loading Pill */}
@@ -1355,10 +1496,54 @@ export const OceanExplorerView: React.FC = () => {
         <LayerPanel
           layerState={layerState}
           onToggleLayer={(layerKey: keyof LayerState) => {
-            setLayerState((prev) => ({
-              ...prev,
-              [layerKey]: !prev[layerKey],
-            }));
+            setLayerState((prev) => {
+              const nextVal = !prev[layerKey];
+              const nextState = { ...prev, [layerKey]: nextVal };
+
+              // If activating an ocean science layer from right sidebar, load the corresponding slice onto Cesium
+              if (layerKey === 'sst' && nextVal) {
+                api.getModelSlice('hycom', { variable: 'temperature', depth: 0 }).then((sliceData) => {
+                  setModelGridConfig({
+                    modelId: 'hycom',
+                    variable: 'temperature',
+                    depthM: 0,
+                    units: sliceData.units || '°C',
+                    latitudes: sliceData.latitudes,
+                    longitudes: sliceData.longitudes,
+                    gridValues: sliceData.grid_values,
+                    minVal: sliceData.min_value,
+                    maxVal: sliceData.max_value,
+                    opacity: 0.75,
+                    isDifferenceField: false,
+                  });
+                }).catch(console.error);
+              } else if (layerKey === 'salinity' && nextVal) {
+                api.getModelSlice('hycom', { variable: 'salinity', depth: 0 }).then((sliceData) => {
+                  setModelGridConfig({
+                    modelId: 'hycom',
+                    variable: 'salinity',
+                    depthM: 0,
+                    units: sliceData.units || 'PSU',
+                    latitudes: sliceData.latitudes,
+                    longitudes: sliceData.longitudes,
+                    gridValues: sliceData.grid_values,
+                    minVal: sliceData.min_value,
+                    maxVal: sliceData.max_value,
+                    opacity: 0.75,
+                    isDifferenceField: false,
+                  });
+                }).catch(console.error);
+              } else if ((layerKey === 'sst' || layerKey === 'salinity' || layerKey === 'waveHeight' || layerKey === 'chlorophyll') && !nextVal) {
+                if (!nextState.sst && !nextState.salinity && !nextState.waveHeight && !nextState.chlorophyll && explorerTab !== 'models' && explorerTab !== 'comparison') {
+                  setModelGridConfig(null);
+                }
+              }
+
+              return nextState;
+            });
+          }}
+          onSelectLightingMode={(mode: 'realistic' | 'readable') => {
+            setLayerState((prev) => ({ ...prev, lightingMode: mode }));
           }}
           onUpdateTerrainExaggeration={(factor: number) => {
             setLayerState((prev) => ({ ...prev, terrainExaggeration: factor }));

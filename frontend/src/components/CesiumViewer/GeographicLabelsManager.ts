@@ -20,28 +20,26 @@ export class GeographicLabelsManager {
   private scratchVec = new Cesium.Cartesian3();
   private scratchVec2 = new Cesium.Cartesian3();
 
+  private isCameraMoving = false;
+
   constructor(viewer: Cesium.Viewer) {
     this.viewer = viewer;
     this.labelCollection = new Cesium.LabelCollection({
       scene: viewer.scene,
     });
     this.viewer.scene.primitives.add(this.labelCollection);
-    this.viewer.camera.percentageChanged = 0.01;
-    this.setupLODListener();
     this.updateLabels();
   }
 
-  private setupLODListener() {
-    this.removeCameraListener = this.viewer.camera.changed.addEventListener(() => {
-      if (!this.updateScheduled) {
-        this.updateScheduled = true;
-        requestAnimationFrame(() => {
-          this.updateLabels();
-          this.updateScheduled = false;
-        });
-      }
-    });
+  public onCameraMoveStart() {
+    this.isCameraMoving = true;
   }
+
+  public onCameraMoveEnd() {
+    this.isCameraMoving = false;
+    this.updateLabels();
+  }
+
 
   public updateLabels() {
     if (!this.viewer || this.viewer.isDestroyed() || !this.isEnabled) {

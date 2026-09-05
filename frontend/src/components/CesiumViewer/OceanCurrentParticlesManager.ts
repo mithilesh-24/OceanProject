@@ -1,4 +1,5 @@
 import * as Cesium from 'cesium';
+import { detectGpuCapabilities } from '../../utils/gpuAcceleration';
 
 interface Particle {
   lat: number;
@@ -14,17 +15,23 @@ export class OceanCurrentParticlesManager {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D | null;
   private particles: Particle[] = [];
-  private numParticles = 2400;
+  private numParticles = 1800;
   private animationFrameId: number | null = null;
   private isEnabled = true;
+  private isCameraMoving = false;
   private speedFactor = 1.0;
-  private trailLength = 12;
+  private trailLength = 10;
 
   // Indian Ocean Domain Bounds
   private minLon = 32.0;
   private maxLon = 115.0;
   private minLat = -38.0;
   private maxLat = 26.0;
+
+  // Pre-allocated scratch objects to prevent garbage collection spikes in 60fps loop
+  private scratchCartesian = new Cesium.Cartesian3();
+  private scratchWindowPos = new Cesium.Cartesian2();
+  private scratchDiff = new Cesium.Cartesian3();
 
   constructor(viewer: Cesium.Viewer | null) {
     this.viewer = viewer;
@@ -37,7 +44,15 @@ export class OceanCurrentParticlesManager {
     this.canvas.style.height = '100%';
     this.canvas.style.pointerEvents = 'none';
     this.canvas.style.zIndex = '5';
-    this.ctx = this.canvas.getContext('2d');
+    this.ctx = this.canvas.getContext('2d', { alpha: true });
+
+    // Adaptive particle count based on hardware capabilities
+    const gpuInfo = detectGpuCapabilities();
+    if (gpuInfo.isGpuAvailable) {
+      this.numParticles = gpuInfo.tier === 'high' ? 2400 : 1600;
+    } else {
+      this.numParticles = 800; // Low/CPU fallback
+    }
 
     if (this.viewer && this.viewer.container) {
       this.viewer.container.appendChild(this.canvas);
@@ -61,10 +76,18 @@ export class OceanCurrentParticlesManager {
     }
   }
 
+  public onCameraMoveStart() {
+    this.isCameraMoving = true;
+  }
+
+  public onCameraMoveEnd() {
+    this.isCameraMoving = false;
+  }
+
   private resizeCanvas() {
     if (!this.viewer || this.viewer.isDestroyed()) return;
     const rect = this.viewer.canvas.getBoundingClientRect();
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
     this.canvas.width = rect.width * dpr;
     this.canvas.height = rect.height * dpr;
     if (this.ctx) {
@@ -82,7 +105,7 @@ export class OceanCurrentParticlesManager {
   private createRandomParticle(randomAge = false): Particle {
     const lat = this.minLat + Math.random() * (this.maxLat - this.minLat);
     const lon = this.minLon + Math.random() * (this.maxLon - this.minLon);
-    const maxAge = 50 + Math.floor(Math.random() * 80);
+    const maxAge = 40 + Math.floor(Math.random() * 60);
     const age = randomAge ? Math.floor(Math.random() * maxAge) : 0;
     return {
       lat,
@@ -122,7 +145,6 @@ export class OceanCurrentParticlesManager {
       const dy = (lat - cy) / 8.0;
       const r = Math.sqrt(dx * dx + dy * dy);
       if (r < 1.6) {
-        // Clockwise eddy flow
         u += 0.9 * dy * Math.exp(-r);
         v += -0.9 * dx * Math.exp(-r);
       }
@@ -135,7 +157,6 @@ export class OceanCurrentParticlesManager {
       const dy = (lat - cy) / 8.0;
       const r = Math.sqrt(dx * dx + dy * dy);
       if (r < 1.5) {
-        // Cyclonic / anticyclonic seasonal gyre
         u += -0.8 * dy * Math.exp(-r);
         v += 0.8 * dx * Math.exp(-r);
       }
@@ -178,6 +199,15 @@ export class OceanCurrentParticlesManager {
     this.speedFactor = Math.max(0.2, Math.min(4.0, speed));
   }
 
+  public setParticleCount(count: number) {
+    this.numParticles = Math.max(400, Math.min(6000, count));
+    this.initParticles();
+  }
+
+  public getParticleCount(): number {
+    return this.numParticles;
+  }
+
   private startAnimation() {
     const render = () => {
       if (!this.viewer || this.viewer.isDestroyed()) {
@@ -207,7 +237,7 @@ export class OceanCurrentParticlesManager {
     const scene = this.viewer.scene;
     const camera = scene.camera;
     const rect = this.viewer.canvas.getBoundingClientRect();
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
     const targetW = rect.width * dpr;
     const targetH = rect.height * dpr;
     if (this.canvas.width !== targetW || this.canvas.height !== targetH) {
@@ -219,18 +249,20 @@ export class OceanCurrentParticlesManager {
     const w = rect.width;
     const h = rect.height;
 
-    // Fade existing trails for smooth glowing particle streak effect
-    this.ctx.fillStyle = 'rgba(11, 19, 43, 0.18)';
+    // Fade background trails for smooth glowing particle streak effect
+    this.ctx.fillStyle = 'rgba(11, 19, 43, 0.22)';
     this.ctx.fillRect(0, 0, w, h);
 
     const dt = 0.08 * this.speedFactor;
-    const scratchCartesian = new Cesium.Cartesian3();
-    const scratchWindowPos = new Cesium.Cartesian2();
+    const camPos = camera.positionWC;
+    const isMoving = this.isCameraMoving;
 
     this.ctx.lineWidth = 1.6;
     this.ctx.lineCap = 'round';
 
-    for (let i = 0; i < this.particles.length; i++) {
+    const particlesLen = isMoving ? Math.min(this.particles.length, 1200) : this.particles.length;
+
+    for (let i = 0; i < particlesLen; i++) {
       const p = this.particles[i];
 
       // Update particle physics
@@ -259,18 +291,46 @@ export class OceanCurrentParticlesManager {
         continue;
       }
 
-      // Project particle history to screen coordinates
+      // ── CAMERA MOVING OPTIMIZATION ──
+      // When the user is panning/rotating/zooming, project ONLY the active particle head.
+      // This reduces CPU matrix projections by over 90% and ensures buttery 60 FPS globe drag!
+      if (isMoving) {
+        const cart3 = Cesium.Cartesian3.fromDegrees(p.lon, p.lat, 100, Cesium.Ellipsoid.WGS84, this.scratchCartesian);
+
+        // Fast horizon dot-product check: (cart3 - camPos) · cart3 > 0 means behind Earth
+        const dot = (cart3.x - camPos.x) * cart3.x + (cart3.y - camPos.y) * cart3.y + (cart3.z - camPos.z) * cart3.z;
+        if (dot > 0) continue;
+
+        let winPos: Cesium.Cartesian2 | undefined = undefined;
+        try {
+          if (Cesium.SceneTransforms.worldToWindowCoordinates) {
+            winPos = Cesium.SceneTransforms.worldToWindowCoordinates(scene, cart3, this.scratchWindowPos);
+          }
+        } catch {
+          continue;
+        }
+
+        if (!winPos || winPos.x < -20 || winPos.x > w + 20 || winPos.y < -20 || winPos.y > h + 20) {
+          continue;
+        }
+
+        const alpha = Math.min(1.0, (1.0 - p.age / p.maxAge) * 1.5) * Math.min(1.0, speedMagnitude * 0.9 + 0.3);
+        this.ctx.fillStyle = `rgba(56, 189, 248, ${alpha * 0.9})`;
+        this.ctx.fillRect(winPos.x - 1, winPos.y - 1, 2.2, 2.2);
+        continue;
+      }
+
+      // ── STATIONARY / SMOOTH STREAK MODE ──
       if (p.history.length >= 2) {
         const screenPoints: Array<{ x: number; y: number }> = [];
         let isOccluded = false;
 
         for (let j = 0; j < p.history.length; j++) {
           const pt = p.history[j];
-          const cart3 = Cesium.Cartesian3.fromDegrees(pt.lon, pt.lat, 100, Cesium.Ellipsoid.WGS84, scratchCartesian);
+          const cart3 = Cesium.Cartesian3.fromDegrees(pt.lon, pt.lat, 100, Cesium.Ellipsoid.WGS84, this.scratchCartesian);
 
-          // Check if behind the Earth globe horizon
-          const cameraToPoint = Cesium.Cartesian3.subtract(cart3, camera.positionWC, new Cesium.Cartesian3());
-          const dot = Cesium.Cartesian3.dot(cameraToPoint, cart3);
+          // Fast horizon dot-product check
+          const dot = (cart3.x - camPos.x) * cart3.x + (cart3.y - camPos.y) * cart3.y + (cart3.z - camPos.z) * cart3.z;
           if (dot > 0) {
             isOccluded = true;
             break;
@@ -279,9 +339,7 @@ export class OceanCurrentParticlesManager {
           let winPos: Cesium.Cartesian2 | undefined = undefined;
           try {
             if (Cesium.SceneTransforms.worldToWindowCoordinates) {
-              winPos = Cesium.SceneTransforms.worldToWindowCoordinates(scene, cart3, scratchWindowPos);
-            } else if ((Cesium.SceneTransforms as any).wgs84ToWindowCoordinates) {
-              winPos = (Cesium.SceneTransforms as any).wgs84ToWindowCoordinates(scene, cart3, scratchWindowPos);
+              winPos = Cesium.SceneTransforms.worldToWindowCoordinates(scene, cart3, this.scratchWindowPos);
             }
           } catch {
             isOccluded = true;
@@ -299,7 +357,6 @@ export class OceanCurrentParticlesManager {
         if (!isOccluded && screenPoints.length >= 2) {
           const alpha = Math.min(1.0, (1.0 - p.age / p.maxAge) * 1.5) * Math.min(1.0, speedMagnitude * 0.9 + 0.3);
 
-          // Gradient color by speed: Cyan (low) -> Electric Azure -> Bright Coral/White (high)
           let strokeColor = `rgba(56, 189, 248, ${alpha * 0.85})`;
           if (speedMagnitude > 1.4) {
             strokeColor = `rgba(255, 255, 255, ${alpha * 0.95})`;
@@ -337,3 +394,4 @@ export class OceanCurrentParticlesManager {
     this.particles = [];
   }
 }
+

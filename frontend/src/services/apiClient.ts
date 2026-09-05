@@ -209,6 +209,62 @@ export interface TimeSnapshotData {
   wyrtki_jet_velocity: number;
 }
 
+export interface AdcpVectorFieldResponse {
+  station_id: string;
+  station_name?: string;
+  mooring_array: string;
+  latitude?: number;
+  longitude?: number;
+  timestamp?: string;
+  acoustic_frequency_khz?: number;
+  depth_range_m?: string;
+  surface_current_speed_ms?: number;
+  max_surface_speed_m_s?: number;
+  depth_averaged_speed_ms?: number;
+  wyrtki_jet_transport_sv?: number;
+  zonal_transport_sv?: number;
+  max_vertical_shear_s_inv?: number;
+  bulk_richardson_number?: number;
+  flow_regime?: string;
+  vectors?: Array<{
+    depth?: number;
+    depth_m: number;
+    u_zonal_ms: number;
+    u_zonal_m_s?: number;
+    v_meridional_ms: number;
+    v_meridional_m_s?: number;
+    w_vertical_ms?: number;
+    w_vertical_m_s?: number;
+    velocity_magnitude_ms: number;
+    horizontal_speed_m_s?: number;
+    current_direction_deg: number;
+    direction_deg?: number;
+    vertical_shear_s_inv: number;
+    richardson_number?: number;
+  }>;
+  vector_field: Array<{
+    depth?: number;
+    depth_m: number;
+    u_zonal_ms: number;
+    u_zonal_m_s?: number;
+    v_meridional_ms: number;
+    v_meridional_m_s?: number;
+    w_vertical_ms?: number;
+    w_vertical_m_s?: number;
+    velocity_magnitude_ms: number;
+    horizontal_speed_m_s?: number;
+    current_direction_deg: number;
+    direction_deg?: number;
+    vertical_shear_s_inv: number;
+    richardson_number?: number;
+  }>;
+  shear_profile?: Array<{
+    depth_m: number;
+    shear_s_inv: number;
+    shear_intensity: string;
+  }>;
+}
+
 export interface ComparisonResults {
   model_id?: string;
   obs_type?: string;
@@ -338,6 +394,48 @@ export interface InterComparisonResults {
     model_b_matrix: number[][];
   };
 }
+
+export interface SatelliteProduct {
+  product_id: string;
+  name: string;
+  satellite_mission: string;
+  sensor_type: string;
+  spatial_resolution_km: number;
+  temporal_resolution_hours: number;
+  coverage_bbox: number[];
+  unit: string;
+  data_variable: string;
+  last_pass_time: string;
+  orbit_type: string;
+  status: string;
+}
+
+export interface SatelliteMatchupPoint {
+  point_id: string;
+  latitude: number;
+  longitude: number;
+  satellite_val: number;
+  insitu_val: number;
+  insitu_platform_id: string;
+  platform_type: string;
+  residual: number;
+  time_diff_mins: number;
+  distance_km: number;
+}
+
+export interface SatelliteMatchupResponse {
+  product_id: string;
+  region: string;
+  collocation_time_window_hours: number;
+  collocation_radius_km: number;
+  total_matchups: number;
+  mean_bias: number;
+  rmse: number;
+  correlation_r2: number;
+  matchup_points: SatelliteMatchupPoint[];
+  summary?: any;
+}
+
 
 class ApiClient {
   private baseUrl: string;
@@ -481,6 +579,116 @@ class ApiClient {
     if (params.variable) p.append('variable', params.variable);
     const qs = p.toString() ? `?${p.toString()}` : '';
     return this.fetchJson<ModelTransectData>(`/models/${modelId}/transect${qs}`);
+  }
+
+  // ═══════════════════════════════════════════════════════
+  // Phase 8: 3D Depth Layers & 4D Spatiotemporal Timeline
+  // ═══════════════════════════════════════════════════════
+  async getDepthLayers(): Promise<DepthLayerConfig[]> {
+    return this.fetchJson<DepthLayerConfig[]>('/visualization/depth-layers');
+  }
+
+  async getTimelineMetadata(): Promise<TimelineData> {
+    return this.fetchJson<TimelineData>('/visualization/timeline');
+  }
+
+  async getTimeline(): Promise<TimelineData> {
+    return this.getTimelineMetadata();
+  }
+
+  async getStateAtTime(params?: { timestamp?: string; variable?: string; depth?: number }): Promise<TimeSnapshotData> {
+    const p = new URLSearchParams();
+    if (params?.timestamp) p.append('timestamp', params.timestamp);
+    if (params?.variable) p.append('variable', params.variable);
+    if (params?.depth !== undefined) p.append('depth', params.depth.toString());
+    const qs = p.toString() ? `?${p.toString()}` : '';
+    return this.fetchJson<TimeSnapshotData>(`/visualization/state-at-time${qs}`);
+  }
+
+  async getSnapshotAtTime(params?: { timestamp?: string; variable?: string; depth?: number }): Promise<TimeSnapshotData> {
+    return this.getStateAtTime(params);
+  }
+
+
+  // ═══════════════════════════════════════════════════════
+  // Phase 6: Lazy Loaded Observation Points & Detail On-Demand
+  // ═══════════════════════════════════════════════════════
+  async getObservationPoints(params?: {
+    min_lat?: number;
+    max_lat?: number;
+    min_lon?: number;
+    max_lon?: number;
+    platform_types?: string;
+    limit?: number;
+  }, signal?: AbortSignal): Promise<any[]> {
+    const p = new URLSearchParams();
+    if (params?.min_lat !== undefined) p.append('min_lat', params.min_lat.toString());
+    if (params?.max_lat !== undefined) p.append('max_lat', params.max_lat.toString());
+    if (params?.min_lon !== undefined) p.append('min_lon', params.min_lon.toString());
+    if (params?.max_lon !== undefined) p.append('max_lon', params.max_lon.toString());
+    if (params?.platform_types) p.append('platform_types', params.platform_types);
+    if (params?.limit) p.append('limit', params.limit.toString());
+    const qs = p.toString() ? `?${p.toString()}` : '';
+    return this.fetchJson<any[]>(`/observations/points${qs}`, { signal });
+  }
+
+  async getArgoFloatDetail(wmoId: string, signal?: AbortSignal): Promise<any> {
+    return this.fetchJson<any>(`/observations/argo/${wmoId}`, { signal });
+  }
+
+  async getGliderDetail(gliderId: string, signal?: AbortSignal): Promise<any> {
+    return this.fetchJson<any>(`/observations/gliders/${gliderId}`, { signal });
+  }
+
+  async getGliders(query?: string, status?: string): Promise<any[]> {
+    const p = new URLSearchParams();
+    if (query) p.append('query', query);
+    if (status) p.append('status', status);
+    const qs = p.toString() ? `?${p.toString()}` : '';
+    return this.fetchJson<any[]>(`/observations/gliders${qs}`);
+  }
+
+  async getBuoyDetail(stationId: string, signal?: AbortSignal): Promise<any> {
+    return this.fetchJson<any>(`/observations/buoys/${stationId}`, { signal });
+  }
+
+  async getBuoys(network?: string, query?: string): Promise<any[]> {
+    const p = new URLSearchParams();
+    if (network) p.append('network', network);
+    if (query) p.append('query', query);
+    const qs = p.toString() ? `?${p.toString()}` : '';
+    return this.fetchJson<any[]>(`/observations/buoys${qs}`);
+  }
+
+  async getCtdDetail(castId: string, signal?: AbortSignal): Promise<any> {
+    return this.fetchJson<any>(`/observations/ctd/${castId}`, { signal });
+  }
+
+  async getCtd(vessel?: string, query?: string): Promise<any[]> {
+    const p = new URLSearchParams();
+    if (vessel) p.append('vessel', vessel);
+    if (query) p.append('query', query);
+    const qs = p.toString() ? `?${p.toString()}` : '';
+    return this.fetchJson<any[]>(`/observations/ctd${qs}`);
+  }
+
+  async getAdcpDetail(stationId: string, signal?: AbortSignal): Promise<any> {
+    return this.fetchJson<any>(`/observations/adcp/${stationId}`, { signal });
+  }
+
+  async getAdcp(mooring?: string, query?: string): Promise<any[]> {
+    const p = new URLSearchParams();
+    if (mooring) p.append('mooring', mooring);
+    if (query) p.append('query', query);
+    const qs = p.toString() ? `?${p.toString()}` : '';
+    return this.fetchJson<any[]>(`/observations/adcp${qs}`);
+  }
+
+  async getAdcpVectorField(stationId?: string): Promise<AdcpVectorFieldResponse> {
+    const p = new URLSearchParams();
+    if (stationId) p.append('station_id', stationId);
+    const qs = p.toString() ? `?${p.toString()}` : '';
+    return this.fetchJson<AdcpVectorFieldResponse>(`/adcp/vector-field${qs}`);
   }
 
   // Scientific Analysis & Validation (Phases 9–14)
@@ -698,6 +906,78 @@ class ApiClient {
   async flushPlatformCache(target?: string): Promise<any> {
     const qs = target ? `?target=${target}` : '';
     return this.fetchJson<any>(`/telemetry/cache/flush${qs}`, { method: 'POST' });
+  }
+
+  // Phase 21: Real-time Alert & Notification System
+  async getActiveAlerts(params?: { severity?: string; status?: string }): Promise<any> {
+    const p = new URLSearchParams();
+    if (params?.severity && params.severity !== 'all') p.append('severity', params.severity);
+    if (params?.status && params.status !== 'all') p.append('status', params.status);
+    const qs = p.toString() ? `?${p.toString()}` : '';
+    return this.fetchJson<any>(`/alerts/active${qs}`);
+  }
+
+  async acknowledgeAlert(alertId: string): Promise<any> {
+    return this.fetchJson<any>(`/alerts/${alertId}/ack`, { method: 'POST' });
+  }
+
+  async dismissAlert(alertId: string): Promise<any> {
+    return this.fetchJson<any>(`/alerts/${alertId}/dismiss`, { method: 'POST' });
+  }
+
+  // Phase 22: High-Performance Caching Grid
+  async getCacheStats(): Promise<any> {
+    return this.fetchJson<any>('/cache/stats');
+  }
+
+  async invalidateCache(target?: string): Promise<any> {
+    const qs = target ? `?target=${target}` : '';
+    return this.fetchJson<any>(`/cache/invalidate${qs}`, { method: 'POST' });
+  }
+
+  // Phase 23: Acoustic Doppler (ADCP) 3D Vector Fields
+  async getAdcpVectorField(stationId: string = 'ADCP-EQ01'): Promise<any> {
+    return this.fetchJson<any>(`/adcp/vector-field?station_id=${stationId}`);
+  }
+
+  // Phase 24: Satellite Remote Sensing & Matchups
+  async getSatelliteLayers(): Promise<any[]> {
+    return this.fetchJson<any[]>('/satellite/layers');
+  }
+
+  async getSatelliteProducts(): Promise<SatelliteProduct[]> {
+    return this.fetchJson<SatelliteProduct[]>('/satellite/products');
+  }
+
+  async getSatelliteMatchup(satelliteId: string = 'sat-modis-sst'): Promise<any> {
+    return this.fetchJson<any>(`/satellite/matchup?satellite_id=${satelliteId}`);
+  }
+
+  async getSatelliteMatchups(productId?: string, region?: string): Promise<SatelliteMatchupResponse> {
+    const p = new URLSearchParams();
+    if (productId) p.append('product_id', productId);
+    if (region) p.append('region', region);
+    const qs = p.toString() ? `?${p.toString()}` : '';
+    return this.fetchJson<SatelliteMatchupResponse>(`/satellite/matchups${qs}`);
+  }
+
+
+  // Phase 25: AI Oceanographic Forecasting Copilot
+  async askOceanCopilot(params: {
+    message: string;
+    context_view?: string;
+    active_model?: string;
+    active_variable?: string;
+    active_depth?: number;
+  }): Promise<any> {
+    return this.fetchJson<any>('/copilot/query', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  }
+
+  async getSuggestedPrompts(): Promise<string[]> {
+    return this.fetchJson<string[]>('/copilot/suggested-prompts');
   }
 }
 

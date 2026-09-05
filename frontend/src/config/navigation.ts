@@ -94,6 +94,13 @@ export const NAVIGATION_CONFIG: NavSection[] = [
         icon: Cpu,
         roles: ['student', 'researcher', 'admin'],
       },
+      {
+        id: 'satellite',
+        title: 'Satellite Remote Sensing',
+        path: '/satellite',
+        icon: Radio,
+        badge: 'EARTH OBS',
+      },
     ],
   },
   {

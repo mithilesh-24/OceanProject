@@ -186,10 +186,26 @@ export class ArgoVisualizationManager {
     this.renderByCurrentAltitude();
   }
 
+  private isCameraMoving = false;
+
+  public onCameraMoveStart() {
+    this.isCameraMoving = true;
+  }
+
+  public onCameraMoveEnd() {
+    this.isCameraMoving = false;
+    if (this.viewer && !this.viewer.isDestroyed()) {
+      const alt = this.viewer.camera.positionCartographic?.height || 15000000;
+      this.updateCameraAltitude(alt);
+      this.updateCameraVisibility();
+    }
+  }
+
   /**
    * Called on camera altitude change to trigger dynamic clustering / unpacking
    */
   public updateCameraAltitude(altitude: number) {
+    if (this.isCameraMoving) return;
     const targetMode = altitude > CLUSTER_ALTITUDE_THRESHOLD ? 'clusters' : 'individual';
     const gridStep = altitude > 9000000 ? 4.5 : 2.5;
 
@@ -197,6 +213,7 @@ export class ArgoVisualizationManager {
       this.renderByCurrentAltitude();
     }
   }
+
 
   private renderByCurrentAltitude() {
     if (!this.viewer || this.viewer.isDestroyed()) return;

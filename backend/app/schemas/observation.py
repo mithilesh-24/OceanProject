@@ -89,3 +89,18 @@ class AdcpStationItem(BaseModel):
     class Config:
         from_attributes = True
 
+class ObservationPointItem(BaseModel):
+    id: str
+    type: str
+    name: str
+    latitude: float
+    longitude: float
+    depth: Optional[float] = None
+    temperature: Optional[float] = None
+    salinity: Optional[float] = None
+    velocity: Optional[float] = None
+    battery: Optional[float] = None
+    status: Optional[str] = None
+    lastDate: Optional[str] = None
+
+

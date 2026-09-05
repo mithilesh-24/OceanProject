@@ -115,95 +115,103 @@ export const FourDView: React.FC = () => {
     if (!viewer || !snapshot) return;
 
     // Clear old 4D entities
-    dynamicEntitiesRef.current.forEach((ent) => viewer.entities.remove(ent));
+    if (viewer.entities) {
+      dynamicEntitiesRef.current.forEach((ent) => viewer.entities.remove(ent));
+    }
     dynamicEntitiesRef.current = [];
 
     // 1. Render Moving Argo Floats with Drift Trails
-    snapshot.argo_floats.forEach((f) => {
-      // Historical trail line
-      if (f.trail && f.trail.length > 1) {
-        const positions = f.trail.map((p) => Cesium.Cartesian3.fromDegrees(p.lon, p.lat, 1000.0));
-        const trailEntity = viewer.entities.add({
-          name: `Drift Trail: ${f.name}`,
-          polyline: {
-            positions,
-            width: 3,
-            material: new Cesium.PolylineGlowMaterialProperty({
-              glowPower: 0.3,
-              color: Cesium.Color.fromCssColorString('#00f2fe').withAlpha(0.8),
-            }),
-          },
-        });
-        dynamicEntitiesRef.current.push(trailEntity);
-      }
-
-      // Current moving float marker
-      const floatEntity = viewer.entities.add({
-        name: f.name,
-        position: Cesium.Cartesian3.fromDegrees(f.lon, f.lat, 5000.0),
-        point: {
-          pixelSize: 12,
-          color: Cesium.Color.fromCssColorString('#00f2fe'),
-          outlineColor: Cesium.Color.WHITE,
-          outlineWidth: 2,
-        },
-        label: {
-          text: `Apex #${f.wmo_id} (${f.temp}°C)`,
-          font: '11px monospace',
-          style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-          outlineWidth: 2,
-          outlineColor: Cesium.Color.BLACK,
-          fillColor: Cesium.Color.WHITE,
-          verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
-          pixelOffset: new Cesium.Cartesian2(0, -12),
+    if (viewer.entities && snapshot.argo_floats && Array.isArray(snapshot.argo_floats)) {
+      snapshot.argo_floats.forEach((f) => {
+        // Historical trail line
+        if (f.trail && f.trail.length > 1) {
+          const positions = f.trail.map((p) => Cesium.Cartesian3.fromDegrees(p.lon, p.lat, 1000.0));
+          const trailEntity = viewer.entities.add({
+            name: `Drift Trail: ${f.name}`,
+            polyline: {
+              positions,
+              width: 3,
+              material: new Cesium.PolylineGlowMaterialProperty({
+                glowPower: 0.3,
+                color: Cesium.Color.fromCssColorString('#00f2fe').withAlpha(0.8),
+              }),
+            },
+          });
+          dynamicEntitiesRef.current.push(trailEntity);
         }
+
+        // Current moving float marker
+        const floatEntity = viewer.entities.add({
+          name: f.name,
+          position: Cesium.Cartesian3.fromDegrees(f.lon, f.lat, 5000.0),
+          point: {
+            pixelSize: 12,
+            color: Cesium.Color.fromCssColorString('#00f2fe'),
+            outlineColor: Cesium.Color.WHITE,
+            outlineWidth: 2,
+          },
+          label: {
+            text: `Apex #${f.wmo_id} (${f.temp}°C)`,
+            font: '11px monospace',
+            style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+            outlineWidth: 2,
+            outlineColor: Cesium.Color.BLACK,
+            fillColor: Cesium.Color.WHITE,
+            verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+            pixelOffset: new Cesium.Cartesian2(0, -12),
+          }
+        });
+        dynamicEntitiesRef.current.push(floatEntity);
       });
-      dynamicEntitiesRef.current.push(floatEntity);
-    });
+    }
 
     // 2. Render Moving Gliders
-    snapshot.gliders.forEach((g) => {
-      const gliderEntity = viewer.entities.add({
-        name: g.name,
-        position: Cesium.Cartesian3.fromDegrees(g.lon, g.lat, 8000.0),
-        point: {
-          pixelSize: 13,
-          color: Cesium.Color.fromCssColorString('#10b981'),
-          outlineColor: Cesium.Color.BLACK,
-          outlineWidth: 2,
-        },
-        label: {
-          text: `Glider ${g.id} (Dive ${g.dive_depth}m)`,
-          font: '11px monospace',
-          fillColor: Cesium.Color.fromCssColorString('#10b981'),
-          verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
-          pixelOffset: new Cesium.Cartesian2(0, -14),
-        }
+    if (viewer.entities && snapshot.gliders && Array.isArray(snapshot.gliders)) {
+      snapshot.gliders.forEach((g) => {
+        const gliderEntity = viewer.entities.add({
+          name: g.name,
+          position: Cesium.Cartesian3.fromDegrees(g.lon, g.lat, 8000.0),
+          point: {
+            pixelSize: 13,
+            color: Cesium.Color.fromCssColorString('#10b981'),
+            outlineColor: Cesium.Color.BLACK,
+            outlineWidth: 2,
+          },
+          label: {
+            text: `Glider ${g.id} (Dive ${g.dive_depth}m)`,
+            font: '11px monospace',
+            fillColor: Cesium.Color.fromCssColorString('#10b981'),
+            verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+            pixelOffset: new Cesium.Cartesian2(0, -14),
+          }
+        });
+        dynamicEntitiesRef.current.push(gliderEntity);
       });
-      dynamicEntitiesRef.current.push(gliderEntity);
-    });
+    }
 
     // 3. Render Moored Buoys
-    snapshot.buoys.forEach((b) => {
-      const buoyEntity = viewer.entities.add({
-        name: b.name,
-        position: Cesium.Cartesian3.fromDegrees(b.lon, b.lat, 2000.0),
-        point: {
-          pixelSize: 11,
-          color: Cesium.Color.fromCssColorString('#f59e0b'),
-          outlineColor: Cesium.Color.WHITE,
-          outlineWidth: 2,
-        },
-        label: {
-          text: `${b.id} (${b.sst}°C)`,
-          font: '10px monospace',
-          fillColor: Cesium.Color.fromCssColorString('#f59e0b'),
-          verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
-          pixelOffset: new Cesium.Cartesian2(0, -12),
-        }
+    if (viewer.entities && snapshot.buoys && Array.isArray(snapshot.buoys)) {
+      snapshot.buoys.forEach((b) => {
+        const buoyEntity = viewer.entities.add({
+          name: b.name,
+          position: Cesium.Cartesian3.fromDegrees(b.lon, b.lat, 2000.0),
+          point: {
+            pixelSize: 11,
+            color: Cesium.Color.fromCssColorString('#f59e0b'),
+            outlineColor: Cesium.Color.WHITE,
+            outlineWidth: 2,
+          },
+          label: {
+            text: `${b.id} (${b.sst}°C)`,
+            font: '10px monospace',
+            fillColor: Cesium.Color.fromCssColorString('#f59e0b'),
+            verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+            pixelOffset: new Cesium.Cartesian2(0, -12),
+          }
+        });
+        dynamicEntitiesRef.current.push(buoyEntity);
       });
-      dynamicEntitiesRef.current.push(buoyEntity);
-    });
+    }
   }, [snapshot]);
 
   return (

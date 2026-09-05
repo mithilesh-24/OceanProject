@@ -225,31 +225,43 @@ export const AdminWorkspaceView: React.FC = () => {
           <table className="ui-table">
             <thead>
               <tr>
-                <th>Pipeline Harvester Job</th>
-                <th>Protocol / Source Agency</th>
-                <th>Cron Schedule</th>
-                <th>Latency</th>
-                <th>Last Ingestion</th>
-                <th>24h Volume</th>
-                <th>Health Score</th>
-                <th>Action</th>
+                <th style={{ minWidth: '220px' }}>Pipeline Harvester Job</th>
+                <th style={{ minWidth: '200px' }}>Protocol / Source Agency</th>
+                <th style={{ minWidth: '130px' }}>Cron Schedule</th>
+                <th style={{ minWidth: '100px' }}>Latency</th>
+                <th style={{ minWidth: '120px' }}>Last Ingestion</th>
+                <th style={{ minWidth: '120px' }}>24h Volume</th>
+                <th style={{ minWidth: '140px' }}>Health Score</th>
+                <th style={{ minWidth: '110px', textAlign: 'right' }}>Action</th>
               </tr>
             </thead>
             <tbody>
               {(telemetry?.pipelines || []).map((p: any) => (
                 <tr key={p.id}>
-                  <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{p.name}</td>
-                  <td style={{ color: 'var(--text-secondary)', fontSize: '11.5px' }}>{p.protocol} ({p.source_agency})</td>
-                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: '11px' }}>{p.cron_schedule}</td>
-                  <td style={{ fontFamily: 'var(--font-mono)', color: '#38bdf8' }}>{p.latency_ms} ms</td>
-                  <td style={{ fontSize: '11.5px', color: 'var(--text-secondary)' }}>{p.last_sync}</td>
-                  <td style={{ fontFamily: 'var(--font-mono)' }}>{p.records_harvested_24h.toLocaleString()} rec</td>
+                  <td style={{ fontWeight: 600, color: 'var(--text-primary)' }} title={p.name}>
+                    {p.name}
+                  </td>
+                  <td style={{ color: 'var(--text-secondary)', fontSize: '11.5px' }}>
+                    {p.protocol} ({p.source_agency})
+                  </td>
+                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: '11px' }}>
+                    {p.cron_schedule}
+                  </td>
+                  <td style={{ fontFamily: 'var(--font-mono)', color: 'var(--primary)' }}>
+                    {p.latency_ms} ms
+                  </td>
+                  <td style={{ fontSize: '11.5px', color: 'var(--text-secondary)' }}>
+                    {p.last_sync}
+                  </td>
+                  <td style={{ fontFamily: 'var(--font-mono)' }}>
+                    {p.records_harvested_24h.toLocaleString()} rec
+                  </td>
                   <td>
                     <Badge variant={p.health_score >= 99.5 ? 'success' : 'warning'}>
                       {p.health_score}% {p.status}
                     </Badge>
                   </td>
-                  <td>
+                  <td style={{ textAlign: 'right' }}>
                     <Button
                       variant="outline"
                       size="sm"

@@ -11,6 +11,7 @@ import { ArgoVisualizationManager } from './ArgoVisualizationManager';
 import { ModelGridLayerManager, ModelGridConfig } from './ModelGridLayerManager';
 import { ObservationPlatformsManager, PlatformItem } from './ObservationPlatformsManager';
 import { OceanCurrentParticlesManager } from './OceanCurrentParticlesManager';
+import { detectGpuCapabilities, applyGpuOptimizationsToViewer } from '../../utils/gpuAcceleration';
 import { ALL_PLACES, ALL_COUNTRIES, ALL_STATES } from '../../data/naturalEarthIndex';
 
 interface CesiumViewerProps {
@@ -54,13 +55,16 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({
   onPlatformClick,
   onArgoFloatVisibilityChange,
   onMeasurementChange,
-  viewerRefOut
+  viewerRefOut,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<Cesium.Viewer | null>(null);
   const buildingTilesetRef = useRef<Cesium.Cesium3DTileset | null>(null);
   const placemarkEntitiesRef = useRef<Map<string, Cesium.Entity>>(new Map());
-  
+  const baseImageryLayerRef = useRef<Cesium.ImageryLayer | null>(null);
+  const worldTerrainProviderRef = useRef<Cesium.TerrainProvider | null>(null);
+  const ellipsoidTerrainRef = useRef<Cesium.TerrainProvider>(new Cesium.EllipsoidTerrainProvider());
+
   // Managers
   const labelsManagerRef = useRef<GeographicLabelsManager | null>(null);
   const boundariesManagerRef = useRef<BoundariesManager | null>(null);
@@ -78,11 +82,14 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({
   useEffect(() => {
     if (!containerRef.current) return;
 
+    // Detect hardware GPU capabilities vs software rasterizer fallback
+    const gpuInfo = detectGpuCapabilities();
+
     // ═══════════════════════════════════════════
-    // CESIUM VIEWER INITIALIZATION
+    // CESIUM VIEWER INITIALIZATION WITH GPU OPTIONS
     // ═══════════════════════════════════════════
     const viewer = new Cesium.Viewer(containerRef.current, {
-      terrainProvider: new Cesium.EllipsoidTerrainProvider(),
+      terrainProvider: ellipsoidTerrainRef.current,
       animation: false,
       timeline: false,
       baseLayerPicker: false,
@@ -91,13 +98,25 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({
       homeButton: false,
       infoBox: false,
       sceneModePicker: false,
-      selectionIndicator: false, // Disable green bracket selection indicator
+      selectionIndicator: false,
       navigationHelpButton: false,
       navigationInstructionsInitiallyVisible: false,
       scene3DOnly: false,
       shouldAnimate: true,
       requestRenderMode: false,
       maximumRenderTimeChange: Infinity,
+      contextOptions: {
+        webgl: {
+          alpha: false,
+          depth: true,
+          stencil: false,
+          antialias: gpuInfo.isGpuAvailable,
+          premultipliedAlpha: true,
+          preserveDrawingBuffer: false,
+          failIfMajorPerformanceCaveat: false,
+          powerPreference: gpuInfo.isGpuAvailable ? 'high-performance' : 'default',
+        },
+      },
     });
 
     viewerRef.current = viewer;
@@ -108,12 +127,9 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({
     const scene = viewer.scene;
     const globe = scene.globe;
 
-    // ═══════════════════════════════════════════
-    // 1. EARTH VISUAL QUALITY
-    // ═══════════════════════════════════════════
-    globe.depthTestAgainstTerrain = true;
-    globe.showGroundAtmosphere = true;
-    globe.showWaterEffect = true;
+    // Apply GPU vs CPU hardware optimizations
+    applyGpuOptimizationsToViewer(viewer, gpuInfo);
+
     (globe as any).terrainExaggeration = layerState.terrainExaggeration || 1.5;
 
     // Atmosphere
@@ -124,142 +140,94 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({
       scene.skyAtmosphere.hueShift = 0.0;
     }
 
-    // Day/Night lighting - enable by default with sun
-    globe.enableLighting = true;
-    if (viewer.scene.sun) viewer.scene.sun.show = true;
+    // Day/Night lighting default setup
+    const isRealisticLighting = layerState.lightingMode === 'realistic';
+    globe.enableLighting = isRealisticLighting;
+    if (viewer.scene.sun) viewer.scene.sun.show = isRealisticLighting;
 
     // ═══════════════════════════════════════════
     // 2. CAMERA & TOUCH CONTROLLER
     // ═══════════════════════════════════════════
     const controller = scene.screenSpaceCameraController;
     controller.enableInputs = true;
-    
-    // Smooth inertia for Google-Earth-like feel
     controller.inertiaSpin = 0.9;
     controller.inertiaTranslate = 0.9;
     controller.inertiaZoom = 0.8;
-    
-    // Zoom limits
     controller.minimumZoomDistance = 50;
     controller.maximumZoomDistance = 40000000;
-    
-    // Enable all interaction modes
     controller.enableRotate = true;
     controller.enableTranslate = true;
     controller.enableZoom = true;
     controller.enableTilt = true;
     controller.enableLook = true;
+    controller.rotateEventTypes = [Cesium.CameraEventType.LEFT_DRAG];
+    controller.zoomEventTypes = [Cesium.CameraEventType.WHEEL, Cesium.CameraEventType.RIGHT_DRAG];
 
-    // Touch gesture mapping
-    controller.rotateEventTypes = [
-      Cesium.CameraEventType.LEFT_DRAG,
-    ];
-
-    controller.zoomEventTypes = [
-      Cesium.CameraEventType.WHEEL,
-      Cesium.CameraEventType.RIGHT_DRAG,
-    ];
-
-    controller.tiltEventTypes = [
-      Cesium.CameraEventType.MIDDLE_DRAG,
-      {
-        eventType: Cesium.CameraEventType.LEFT_DRAG,
-        modifier: Cesium.KeyboardEventModifier.CTRL,
-      },
-      {
-        eventType: Cesium.CameraEventType.RIGHT_DRAG,
-        modifier: Cesium.KeyboardEventModifier.CTRL,
-      },
-    ];
-
-    controller.lookEventTypes = [
-      {
-        eventType: Cesium.CameraEventType.LEFT_DRAG,
-        modifier: Cesium.KeyboardEventModifier.SHIFT,
-      },
-    ];
-
-    // Prevent browser touch scroll & native page zoom
-    const cesiumCanvas = viewer.canvas;
-    cesiumCanvas.style.touchAction = 'none';
-    if (containerRef.current) {
-      containerRef.current.style.touchAction = 'none';
-    }
-    const cesiumWidget = containerRef.current?.querySelector('.cesium-widget') as HTMLElement;
-    if (cesiumWidget) {
-      cesiumWidget.style.touchAction = 'none';
-    }
-
-    // Explicit 2-finger pinch zoom controller for standard mobile map behavior
-    // Distance increases (pinch outward) -> zoomIn (move camera closer to Earth)
-    // Distance decreases (pinch inward) -> zoomOut (move camera farther from Earth)
-    let lastPinchDistance = 0;
+    // Pinch-to-zoom & two-finger tilt
+    const cesiumCanvas = scene.canvas;
+    let initialPinchDistance = 0;
+    let initialAltitude = 0;
 
     const handlePinchStart = (e: TouchEvent) => {
       if (e.touches.length === 2) {
-        e.preventDefault();
-        const t1 = e.touches[0];
-        const t2 = e.touches[1];
-        lastPinchDistance = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        initialPinchDistance = Math.hypot(dx, dy);
+        if (viewer && !viewer.isDestroyed()) {
+          const carto = viewer.camera.positionCartographic;
+          if (carto) initialAltitude = carto.height;
+        }
       }
     };
 
     const handlePinchMove = (e: TouchEvent) => {
-      if (e.touches.length === 2) {
+      if (e.touches.length === 2 && initialPinchDistance > 0) {
         e.preventDefault();
-        const t1 = e.touches[0];
-        const t2 = e.touches[1];
-        const currentDistance = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
-
-        if (lastPinchDistance > 0 && viewerRef.current && !viewerRef.current.isDestroyed()) {
-          const delta = currentDistance - lastPinchDistance;
-          if (Math.abs(delta) > 0.5) {
-            const camera = viewerRef.current.camera;
-            const alt = camera.positionCartographic ? camera.positionCartographic.height : 100000;
-            const normDelta = delta / Math.max(window.innerWidth, window.innerHeight);
-            const zoomAmount = Math.min(alt * 0.4, alt * Math.abs(normDelta) * 2.2);
-
-            if (delta > 0) {
-              // Pinch OUTWARD (fingers moving AWAY) -> ZOOM IN (closer to Earth)
-              camera.zoomIn(zoomAmount);
-            } else if (delta < 0) {
-              // Pinch INWARD (fingers moving CLOSER) -> ZOOM OUT (farther from Earth)
-              camera.zoomOut(zoomAmount);
-            }
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const currentDistance = Math.hypot(dx, dy);
+        const ratio = initialPinchDistance / currentDistance;
+        const targetAlt = Math.max(100, Math.min(35000000, initialAltitude * ratio));
+        if (viewer && !viewer.isDestroyed()) {
+          const carto = viewer.camera.positionCartographic;
+          if (carto) {
+            viewer.camera.setView({
+              destination: Cesium.Cartesian3.fromRadians(carto.longitude, carto.latitude, targetAlt),
+            });
           }
         }
-        lastPinchDistance = currentDistance;
       }
     };
 
-    const handlePinchEnd = (e: TouchEvent) => {
-      if (e.touches.length < 2) {
-        lastPinchDistance = 0;
-      }
+    const handlePinchEnd = () => {
+      initialPinchDistance = 0;
     };
 
     cesiumCanvas.addEventListener('touchstart', handlePinchStart, { passive: false });
     cesiumCanvas.addEventListener('touchmove', handlePinchMove, { passive: false });
-    cesiumCanvas.addEventListener('touchend', handlePinchEnd, { passive: true });
+    cesiumCanvas.addEventListener('touchend', handlePinchEnd);
 
     // ═══════════════════════════════════════════
-    // 3. SATELLITE IMAGERY PROVIDER
+    // 3. BASE IMAGERY LAYER
     // ═══════════════════════════════════════════
     try {
-      viewer.imageryLayers.removeAll();
       Cesium.ArcGisMapServerImageryProvider.fromUrl(
         'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer'
       ).then((esriImagery) => {
         if (viewerRef.current && !viewerRef.current.isDestroyed()) {
-          viewerRef.current.imageryLayers.addImageryProvider(esriImagery);
+          const layer = viewerRef.current.imageryLayers.addImageryProvider(esriImagery);
+          baseImageryLayerRef.current = layer;
+          layer.show = layerState.satellite !== false;
         }
       }).catch(() => {
         if (viewerRef.current && !viewerRef.current.isDestroyed()) {
-          viewerRef.current.imageryLayers.addImageryProvider(
+          const layer = viewerRef.current.imageryLayers.addImageryProvider(
             new Cesium.OpenStreetMapImageryProvider({
               url: 'https://a.tile.openstreetmap.org/',
             })
           );
+          baseImageryLayerRef.current = layer;
+          layer.show = layerState.satellite !== false;
         }
       });
     } catch (e) {
@@ -274,7 +242,8 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({
         requestWaterMask: true,
         requestVertexNormals: true,
       }).then((terrainProvider: Cesium.TerrainProvider) => {
-        if (viewerRef.current && !viewerRef.current.isDestroyed()) {
+        worldTerrainProviderRef.current = terrainProvider;
+        if (viewerRef.current && !viewerRef.current.isDestroyed() && layerState.terrain !== false) {
           viewerRef.current.terrainProvider = terrainProvider;
         }
       }).catch((err: unknown) => {
@@ -285,7 +254,7 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({
     }
 
     // ═══════════════════════════════════════════
-    // 5. GEOGRAPHIC & ARGO MANAGERS
+    // 5. MANAGERS INITIALIZATION
     // ═══════════════════════════════════════════
     labelsManagerRef.current = new GeographicLabelsManager(viewer);
     boundariesManagerRef.current = new BoundariesManager(viewer);
@@ -296,7 +265,7 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({
     platformsManagerRef.current = new ObservationPlatformsManager(viewer);
     particlesManagerRef.current = new OceanCurrentParticlesManager(viewer);
 
-    // Initial Camera View (Indian Ocean View)
+    // Initial Camera View (Indian Ocean)
     viewer.camera.setView({
       destination: Cesium.Cartesian3.fromDegrees(77.0, 15.0, 18000000),
       orientation: {
@@ -309,10 +278,23 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({
     viewer.camera.percentageChanged = 0.01;
 
     // ═══════════════════════════════════════════
-    // 6. CAMERA UPDATE LISTENER (Status Bar & Geographic Visibility)
+    // 6. HIGH-PERFORMANCE CAMERA EVENT LIFECYCLE
     // ═══════════════════════════════════════════
-    const removeCameraListener = viewer.camera.changed.addEventListener(() => {
+    // Camera movement takes strict priority: during active rotation/pan/zoom,
+    // heavy calculations and React setState re-renders are bypassed.
+    const removeMoveStartListener = viewer.camera.moveStart.addEventListener(() => {
+      particlesManagerRef.current?.onCameraMoveStart();
+      labelsManagerRef.current?.onCameraMoveStart();
+      argoManagerRef.current?.onCameraMoveStart();
+    });
+
+    const removeMoveEndListener = viewer.camera.moveEnd.addEventListener(() => {
       if (!viewer || viewer.isDestroyed()) return;
+
+      particlesManagerRef.current?.onCameraMoveEnd();
+      labelsManagerRef.current?.onCameraMoveEnd();
+      argoManagerRef.current?.onCameraMoveEnd();
+
       const camera = viewer.camera;
       const position = camera.positionCartographic;
       if (position) {
@@ -324,32 +306,18 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({
           heading: Math.round(Cesium.Math.toDegrees(camera.heading || 0)),
           pitch: Math.round(Cesium.Math.toDegrees(camera.pitch || 0)),
         });
-
-        // Trigger dynamic clustering LOD transition based on camera altitude
-        if (argoManagerRef.current) {
-          argoManagerRef.current.updateCameraAltitude(position.height);
-        }
-      }
-
-      // Recalculate 3D Argo float geographic camera view & horizon visibility
-      if (argoManagerRef.current) {
-        const { hiddenSelectedId } = argoManagerRef.current.updateCameraVisibility();
-        if (hiddenSelectedId && onArgoFloatVisibilityChange) {
-          onArgoFloatVisibilityChange(hiddenSelectedId, false);
-        }
       }
     });
 
+
     // ═══════════════════════════════════════════
-    // 7. CLICK & DOUBLE-CLICK HANDLERS
+    // 7. CLICK HANDLER
     // ═══════════════════════════════════════════
     const handler = new Cesium.ScreenSpaceEventHandler(scene.canvas);
 
-    // Single Left Click Handler
     handler.setInputAction((click: { position: Cesium.Cartesian2 }) => {
       if (!viewer || viewer.isDestroyed()) return;
 
-      // First check if an Argo Float observation or Cluster badge was tapped/clicked!
       if (argoManagerRef.current) {
         const pickedObject = scene.pick(click.position);
         const argoPick = argoManagerRef.current.pick(
@@ -358,7 +326,6 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({
         );
         if (argoPick) {
           if (argoPick.type === 'cluster') {
-            // Smoothly fly into cluster centroid to unpack individual floats!
             viewer.camera.flyTo({
               destination: Cesium.Cartesian3.fromDegrees(
                 argoPick.cluster.centroidLon,
@@ -370,12 +337,11 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({
             return;
           } else if (argoPick.type === 'float' && onArgoFloatClick) {
             onArgoFloatClick(argoPick.observation);
-            return; // Handled Argo float click!
+            return;
           }
         }
       }
 
-      // Check if a multi-platform observation (Glider, Buoy, CTD, ADCP, Residual) was tapped!
       if (platformsManagerRef.current) {
         const platform = platformsManagerRef.current.pickPlatform(click.position);
         if (platform && onPlatformClick) {
@@ -384,7 +350,6 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({
         }
       }
 
-      // Otherwise handle location pick on globe
       const ray = viewer.camera.getPickRay(click.position);
       if (!ray) return;
 
@@ -394,9 +359,6 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({
       const cartographic = Cesium.Cartographic.fromCartesian(cartesian);
       const lat = Cesium.Math.toDegrees(cartographic.latitude);
       const lon = Cesium.Math.toDegrees(cartographic.longitude);
-      const camAlt = viewer.camera.positionCartographic
-        ? viewer.camera.positionCartographic.height
-        : 50000;
 
       let groundHeight = 0;
       try {
@@ -425,7 +387,7 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({
       let nearestCountry = '';
       let nearestState = '';
       let minCountryDist = Number.MAX_VALUE;
-      ALL_COUNTRIES.forEach(c => {
+      ALL_COUNTRIES.forEach((c) => {
         const d = Math.hypot(c.lat - lat, c.lon - lon);
         if (d < minCountryDist) {
           minCountryDist = d;
@@ -433,7 +395,7 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({
         }
       });
       let minStateDist = Number.MAX_VALUE;
-      ALL_STATES.forEach(s => {
+      ALL_STATES.forEach((s) => {
         const d = Math.hypot(s.lat - lat, s.lon - lon);
         if (d < minStateDist) {
           minStateDist = d;
@@ -453,52 +415,36 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({
         latitude: lat,
         longitude: lon,
         height: groundHeight,
-        cameraAltitude: camAlt,
+        cameraAltitude: viewer.camera.positionCartographic?.height || 50000,
         heading: Math.round(Cesium.Math.toDegrees(viewer.camera.heading || 0)),
         pitch: Math.round(Cesium.Math.toDegrees(viewer.camera.pitch || 0)),
         details,
       });
     }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
-    // Double Click / Double Tap: Zoom toward clicked location
+    // Double click to fly in smoothly
     handler.setInputAction((click: { position: Cesium.Cartesian2 }) => {
       if (!viewer || viewer.isDestroyed()) return;
-
       const ray = viewer.camera.getPickRay(click.position);
       if (!ray) return;
-
       const cartesian = scene.globe.pick(ray, scene);
       if (!cartesian) return;
 
-      const cartographic = Cesium.Cartographic.fromCartesian(cartesian);
-      const lat = Cesium.Math.toDegrees(cartographic.latitude);
-      const lon = Cesium.Math.toDegrees(cartographic.longitude);
-      const currentAlt = viewer.camera.positionCartographic
-        ? viewer.camera.positionCartographic.height
-        : 100000;
-
-      const targetAlt = Math.max(200, currentAlt * 0.35);
+      const carto = Cesium.Cartographic.fromCartesian(cartesian);
+      const targetHeight = Math.max(10000, (viewer.camera.positionCartographic?.height || 500000) * 0.35);
 
       viewer.camera.flyTo({
-        destination: Cesium.Cartesian3.fromDegrees(lon, lat, targetAlt),
-        orientation: {
-          heading: viewer.camera.heading,
-          pitch: viewer.camera.pitch,
-          roll: 0.0,
-        },
+        destination: Cesium.Cartesian3.fromRadians(carto.longitude, carto.latitude, targetHeight),
         duration: 1.5,
-        easingFunction: Cesium.EasingFunction.QUADRATIC_IN_OUT,
       });
     }, Cesium.ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
 
-    // ═══════════════════════════════════════════
-    // CLEANUP
-    // ═══════════════════════════════════════════
     return () => {
       cesiumCanvas.removeEventListener('touchstart', handlePinchStart);
       cesiumCanvas.removeEventListener('touchmove', handlePinchMove);
       cesiumCanvas.removeEventListener('touchend', handlePinchEnd);
-      removeCameraListener();
+      removeMoveStartListener();
+      removeMoveEndListener();
       handler.destroy();
       labelsManagerRef.current?.destroy();
       boundariesManagerRef.current?.destroy();
@@ -522,10 +468,11 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({
     if (!viewer || viewer.isDestroyed()) return;
 
     const globe = viewer.scene.globe;
-    globe.enableLighting = true;
-    if (viewer.scene.sun) viewer.scene.sun.show = true;
+    const isRealistic = layerState.lightingMode === 'realistic';
+    globe.enableLighting = isRealistic;
+    if (viewer.scene.sun) viewer.scene.sun.show = isRealistic;
 
-    if (layerState.lightingMode === 'realistic') {
+    if (isRealistic) {
       (globe as any).nightFadeOutDistance = 1e7;
       (globe as any).nightFadeInDistance = 5e6;
     } else {
@@ -535,19 +482,30 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({
   }, [layerState.lightingMode]);
 
   // ═══════════════════════════════════════════
-  // Layer Manager Toggles & Argo Data Updates
+  // Base Layers (Satellite, Terrain, Clouds, Borders, Labels, Bathymetry)
   // ═══════════════════════════════════════════
   useEffect(() => {
-    labelsManagerRef.current?.setEnabled(layerState.labels);
-    boundariesManagerRef.current?.setEnabled(layerState.borders);
-    cloudsManagerRef.current?.setEnabled(layerState.clouds);
-    bathymetryManagerRef.current?.setEnabled(layerState.bathymetry);
-    particlesManagerRef.current?.setEnabled(particlesEnabled && layerState.oceanCurrents !== false);
+    // Satellite imagery visibility
+    if (baseImageryLayerRef.current) {
+      baseImageryLayerRef.current.show = layerState.satellite !== false;
+    }
 
+    // Terrain provider switching
     const viewer = viewerRef.current;
     if (viewer && !viewer.isDestroyed()) {
-      (viewer.scene.globe as any).terrainExaggeration = layerState.terrainExaggeration;
+      if (layerState.terrain !== false && worldTerrainProviderRef.current) {
+        viewer.terrainProvider = worldTerrainProviderRef.current;
+      } else {
+        viewer.terrainProvider = ellipsoidTerrainRef.current;
+      }
+      (viewer.scene.globe as any).terrainExaggeration = layerState.terrainExaggeration || 1.5;
     }
+
+    labelsManagerRef.current?.setEnabled(layerState.labels !== false);
+    boundariesManagerRef.current?.setEnabled(layerState.borders !== false);
+    cloudsManagerRef.current?.setEnabled(!!layerState.clouds);
+    bathymetryManagerRef.current?.setEnabled(!!layerState.bathymetry);
+    particlesManagerRef.current?.setEnabled(particlesEnabled && layerState.oceanCurrents !== false);
   }, [layerState, particlesEnabled]);
 
   // Handle Argo Observations, Color Variable & Selection Highlights
@@ -576,7 +534,7 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({
     }
   }, [modelGridConfig, modelLayerOpacity]);
 
-  // Handle Multi-Sensor Observation Platforms (Glider, Buoy, CTD, ADCP, Residuals)
+  // Handle Multi-Sensor Observation Platforms
   useEffect(() => {
     if (platformsManagerRef.current) {
       platformsManagerRef.current.setVisibleTypes(visiblePlatformTypes);
@@ -585,7 +543,7 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({
   }, [platformItems, visiblePlatformTypes]);
 
   // ═══════════════════════════════════════════
-  // Scene Mode Switching (3D / 2D)
+  // Scene Mode Switching (3D / 2D / COLUMBUS)
   // ═══════════════════════════════════════════
   useEffect(() => {
     const viewer = viewerRef.current;
@@ -650,7 +608,7 @@ export const CesiumViewer: React.FC<CesiumViewerProps> = ({
           position: Cesium.Cartesian3.fromDegrees(p.longitude, p.latitude, p.height + 10),
           point: {
             pixelSize: 10,
-            color: Cesium.Color.fromCssColorString('#3b82f6'),
+            color: Cesium.Color.fromCssColorString('#38bdf8'),
             outlineColor: Cesium.Color.WHITE,
             outlineWidth: 2,
             heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,

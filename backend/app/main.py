@@ -18,6 +18,11 @@ from app.api.v1.endpoints.export import router as export_router
 from app.api.v1.endpoints.educational import router as educational_router
 from app.api.v1.endpoints.researcher import router as researcher_router
 from app.api.v1.endpoints.admin_telemetry import router as admin_telemetry_router
+from app.api.v1.endpoints.alerts import router as alerts_router
+from app.api.v1.endpoints.cache import router as cache_router
+from app.api.v1.endpoints.adcp_analysis import router as adcp_analysis_router
+from app.api.v1.endpoints.satellite import router as satellite_router
+from app.api.v1.endpoints.copilot import router as copilot_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -58,6 +63,11 @@ app.include_router(export_router, prefix=f"{settings.API_V1_STR}/export", tags=[
 app.include_router(educational_router, prefix=f"{settings.API_V1_STR}/educational", tags=["Educational Oceanography"])
 app.include_router(researcher_router, prefix=f"{settings.API_V1_STR}/research", tags=["Researcher Workbench"])
 app.include_router(admin_telemetry_router, prefix=f"{settings.API_V1_STR}/telemetry", tags=["Admin Telemetry"])
+app.include_router(alerts_router, prefix=f"{settings.API_V1_STR}/alerts", tags=["Real-Time Alerts"])
+app.include_router(cache_router, prefix=f"{settings.API_V1_STR}/cache", tags=["Caching Grid"])
+app.include_router(adcp_analysis_router, prefix=f"{settings.API_V1_STR}/adcp", tags=["ADCP 3D Vector Fields"])
+app.include_router(satellite_router, prefix=f"{settings.API_V1_STR}/satellite", tags=["Satellite Remote Sensing"])
+app.include_router(copilot_router, prefix=f"{settings.API_V1_STR}/copilot", tags=["AI Ocean Copilot"])
 
 @app.get("/")
 def root_index():

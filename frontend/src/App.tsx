@@ -12,6 +12,7 @@ import { GlidersView } from './views/GlidersView';
 import { BuoysView } from './views/BuoysView';
 import { CtdView } from './views/CtdView';
 import { AdcpView } from './views/AdcpView';
+import { SatelliteView } from './views/SatelliteView';
 import { ModelsView } from './views/ModelsView';
 import { HycomView } from './views/HycomView';
 import { RomsView } from './views/RomsView';
@@ -48,6 +49,7 @@ export const App: React.FC = () => {
           <Route path="/buoys" element={<BuoysView />} />
           <Route path="/ctd" element={<CtdView />} />
           <Route path="/adcp" element={<AdcpView />} />
+          <Route path="/satellite" element={<SatelliteView />} />
 
           {/* Models */}
           <Route path="/models" element={<ModelsView />} />

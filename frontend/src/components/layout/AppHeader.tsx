@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Menu, Globe, Sparkles, Activity, Server, AlertTriangle } from 'lucide-react';
+import { Menu, Globe, Sparkles, Activity, Server, AlertTriangle, Bell, Bot } from 'lucide-react';
 import { GlobalSearchBar } from './GlobalSearchBar';
 import { RoleSwitcher } from './RoleSwitcher';
 import { UserProfilePopover } from './UserProfilePopover';
@@ -8,6 +8,8 @@ import { ThemeSwitcher } from '../UI/ThemeSwitcher';
 import { Button } from '../UI/Button';
 import { Badge } from '../UI/Badge';
 import { Tooltip } from '../UI/Tooltip';
+import { NotificationDrawer } from '../notifications/NotificationDrawer';
+import { OceanCopilotDrawer } from '../copilot/OceanCopilotDrawer';
 import { api, HealthStatus } from '../../services/apiClient';
 
 interface AppHeaderProps {
@@ -18,6 +20,9 @@ interface AppHeaderProps {
 export const AppHeader: React.FC<AppHeaderProps> = ({ onToggleSidebar, onOpenDesignSystem }) => {
   const [health, setHealth] = useState<HealthStatus | null>(null);
   const [isHealthy, setIsHealthy] = useState<boolean>(true);
+  const [isNotificationOpen, setIsNotificationOpen] = useState<boolean>(false);
+  const [isCopilotOpen, setIsCopilotOpen] = useState<boolean>(false);
+  const [alertCount, setAlertCount] = useState<number>(3);
 
   const checkHealth = () => {
     api.getHealth()
@@ -104,6 +109,52 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ onToggleSidebar, onOpenDes
           </div>
         </Tooltip>
 
+        {/* Phase 25: AI Ocean Copilot Trigger */}
+        <Tooltip content="Open AI Oceanographic Forecasting Copilot">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsCopilotOpen(true)}
+            leftIcon={<Bot className="w-3.5 h-3.5 text-sky" />}
+          >
+            AI Copilot
+          </Button>
+        </Tooltip>
+
+        {/* Phase 21: Real-Time Alerts Notification Trigger */}
+        <Tooltip content={`${alertCount} Active Ocean Climate Alerts & Telemetry Warnings`}>
+          <div style={{ position: 'relative' }}>
+            <Button
+              variant="ghost"
+              size="sm"
+              iconOnly
+              onClick={() => setIsNotificationOpen(true)}
+              aria-label="Open Ocean Notifications"
+            >
+              <Bell className="w-4 h-4 text-amber" />
+            </Button>
+            {alertCount > 0 && (
+              <span
+                style={{
+                  position: 'absolute',
+                  top: '-2px',
+                  right: '-2px',
+                  backgroundColor: '#f43f5e',
+                  color: '#ffffff',
+                  fontSize: '9px',
+                  fontWeight: 700,
+                  borderRadius: '10px',
+                  padding: '1px 4px',
+                  lineHeight: 1,
+                  pointerEvents: 'none'
+                }}
+              >
+                {alertCount}
+              </span>
+            )}
+          </div>
+        </Tooltip>
+
         {onOpenDesignSystem && (
           <Tooltip content="Inspect Phase 1 UI Design System Catalog">
             <Button
@@ -123,6 +174,19 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ onToggleSidebar, onOpenDes
 
         <UserProfilePopover />
       </div>
+
+      {/* Real-time Notification Drawer (Phase 21) */}
+      <NotificationDrawer
+        isOpen={isNotificationOpen}
+        onClose={() => setIsNotificationOpen(false)}
+        onAlertCountChange={(cnt) => setAlertCount(cnt)}
+      />
+
+      {/* AI Ocean Copilot Drawer (Phase 25) */}
+      <OceanCopilotDrawer
+        isOpen={isCopilotOpen}
+        onClose={() => setIsCopilotOpen(false)}
+      />
     </header>
   );
 };

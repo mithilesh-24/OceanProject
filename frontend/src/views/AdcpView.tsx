@@ -2,14 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   Waves, ExternalLink, Activity, Wind, Compass, Zap, 
-  Search, Eye 
+  Search, Eye, RefreshCw, BarChart2, ShieldCheck, ArrowUpRight
 } from 'lucide-react';
 import { Button } from '../components/UI/Button';
 import { Badge } from '../components/UI/Badge';
 import { Input } from '../components/UI/Input';
-import { AdcpVelocityProfileChart } from '../components/charts/AdcpVelocityProfileChart';
 import { ObservationDetailDrawer, SelectedObservation } from '../components/explorer/ObservationDetailDrawer';
-import { api } from '../services/apiClient';
+import { api, AdcpVectorFieldResponse } from '../services/apiClient';
 
 export const AdcpView: React.FC = () => {
   const [stations, setStations] = useState<any[]>([]);
@@ -17,6 +16,11 @@ export const AdcpView: React.FC = () => {
   const [selectedArray, setSelectedArray] = useState('ALL');
   const [selectedStation, setSelectedStation] = useState<SelectedObservation | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+  // Phase 23 3D Vector field state
+  const [activeAdcpStation, setActiveAdcpStation] = useState<string>('ADCP-EQ-01');
+  const [vectorData, setVectorData] = useState<AdcpVectorFieldResponse | null>(null);
+  const [isLoadingVectors, setIsLoadingVectors] = useState<boolean>(false);
 
   const fallbackStations = [
     {
@@ -103,6 +107,44 @@ export const AdcpView: React.FC = () => {
     fetchAdcp();
   }, [selectedArray, searchQuery]);
 
+  const fetchVectorField = async (stationId: string) => {
+    setIsLoadingVectors(true);
+    try {
+      const data = await api.getAdcpVectorField(stationId);
+      setVectorData(data);
+    } catch {
+      // Fallback
+      setVectorData({
+        station_id: stationId,
+        timestamp: new Date().toISOString(),
+        mooring_array: 'Equatorial Jet Mooring Array',
+        latitude: 0.0,
+        longitude: 77.0,
+        surface_current_speed_ms: 1.24,
+        depth_averaged_speed_ms: 0.58,
+        wyrtki_jet_transport_sv: 14.8,
+        max_vertical_shear_s_inv: 0.0142,
+        bulk_richardson_number: 0.42,
+        vector_field: [
+          { depth_m: 10, u_zonal_ms: 1.18, v_meridional_ms: 0.22, w_vertical_ms: 0.002, velocity_magnitude_ms: 1.20, current_direction_deg: 79.4, vertical_shear_s_inv: 0.004, richardson_number: 0.85 },
+          { depth: 30, depth_m: 30, u_zonal_ms: 1.22, v_meridional_ms: 0.20, w_vertical_ms: 0.003, velocity_magnitude_ms: 1.24, current_direction_deg: 80.7, vertical_shear_s_inv: 0.006, richardson_number: 0.72 },
+          { depth: 60, depth_m: 60, u_zonal_ms: 1.08, v_meridional_ms: 0.16, w_vertical_ms: 0.001, velocity_magnitude_ms: 1.09, current_direction_deg: 81.6, vertical_shear_s_inv: 0.011, richardson_number: 0.48 },
+          { depth: 100, depth_m: 100, u_zonal_ms: 0.95, v_meridional_ms: 0.12, w_vertical_ms: -0.001, velocity_magnitude_ms: 0.96, current_direction_deg: 82.8, vertical_shear_s_inv: 0.014, richardson_number: 0.38 },
+          { depth: 150, depth_m: 150, u_zonal_ms: 0.54, v_meridional_ms: 0.04, w_vertical_ms: -0.002, velocity_magnitude_ms: 0.54, current_direction_deg: 85.8, vertical_shear_s_inv: 0.011, richardson_number: 0.52 },
+          { depth: 200, depth_m: 200, u_zonal_ms: 0.22, v_meridional_ms: -0.05, w_vertical_ms: 0.0, velocity_magnitude_ms: 0.23, current_direction_deg: 102.8, vertical_shear_s_inv: 0.008, richardson_number: 0.65 },
+          { depth: 300, depth_m: 300, u_zonal_ms: -0.15, v_meridional_ms: -0.08, w_vertical_ms: 0.0, velocity_magnitude_ms: 0.17, current_direction_deg: 241.9, vertical_shear_s_inv: 0.005, richardson_number: 0.92 },
+          { depth: 500, depth_m: 500, u_zonal_ms: -0.08, v_meridional_ms: -0.02, w_vertical_ms: 0.0, velocity_magnitude_ms: 0.08, current_direction_deg: 256.0, vertical_shear_s_inv: 0.002, richardson_number: 1.45 }
+        ]
+      });
+    } finally {
+      setIsLoadingVectors(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchVectorField(activeAdcpStation);
+  }, [activeAdcpStation]);
+
   const handleInspectAdcp = (a: any) => {
     setSelectedStation({
       type: 'adcp',
@@ -116,6 +158,7 @@ export const AdcpView: React.FC = () => {
       velocityProfile: a.velocity_profile,
     });
     setIsDrawerOpen(true);
+    setActiveAdcpStation(a.station_id);
   };
 
   const filteredStations = stations.filter(
@@ -130,12 +173,16 @@ export const AdcpView: React.FC = () => {
       {/* Header */}
       <div className="page-header-row">
         <div>
-          <h1 className="page-title">
-            <Waves className="w-5 h-5 text-[var(--primary)]" />
-            ADCP Ocean Current Profilers
-          </h1>
+          <div className="flex items-center gap-2">
+            <h1 className="page-title flex items-center gap-2">
+              <Waves className="w-5 h-5 text-[var(--primary)]" />
+              Acoustic Doppler (ADCP) 3D Currents &amp; Vertical Shear
+            </h1>
+            <Badge variant="primary">Phase 23</Badge>
+            <Badge variant="success">Broadband Acoustic Stream</Badge>
+          </div>
           <p className="page-subtitle">
-            Acoustic Doppler Current Profilers measuring 3D water velocity vectors (u, v, w) and vertical shear across depth bins.
+            3D water velocity vectors (u, v, w), vertical shear profile (∂u/∂z), and Wyrtki Jet volume transport in Sverdrups (Sv).
           </p>
         </div>
 
@@ -156,37 +203,152 @@ export const AdcpView: React.FC = () => {
             <span>Peak Current Velocity</span>
             <Zap className="w-4 h-4 text-[var(--warning)]" />
           </div>
-          <div className="metric-stat-value">2.10 m/s</div>
-          <div className="metric-stat-sub"><span>Somali Jet Core (Surface Bin)</span></div>
-        </div>
-
-        <div className="metric-stat-card">
-          <div className="metric-stat-header">
-            <span>Active ADCP Moorings</span>
-            <Activity className="w-4 h-4 text-[var(--primary)]" />
+          <div className="metric-stat-value">
+            {vectorData?.surface_current_speed_ms ? `${vectorData.surface_current_speed_ms.toFixed(2)} m/s` : '2.10 m/s'}
           </div>
-          <div className="metric-stat-value">12 Moored Arrays</div>
-          <div className="metric-stat-sub"><span>Equatorial & Coastal straits</span></div>
+          <div className="metric-stat-sub"><span>Equatorial / Somali Jet Core</span></div>
         </div>
 
         <div className="metric-stat-card">
           <div className="metric-stat-header">
-            <span>Vertical Bin Resolution</span>
+            <span>Wyrtki Jet Transport</span>
+            <ArrowUpRight className="w-4 h-4 text-[var(--primary)]" />
+          </div>
+          <div className="metric-stat-value text-sky">
+            {vectorData?.wyrtki_jet_transport_sv ? `${vectorData.wyrtki_jet_transport_sv.toFixed(1)} Sv` : '14.8 Sv'}
+          </div>
+          <div className="metric-stat-sub"><span>1 Sv = 10⁶ m³/s eastward flux</span></div>
+        </div>
+
+        <div className="metric-stat-card">
+          <div className="metric-stat-header">
+            <span>Peak Vertical Shear (∂u/∂z)</span>
             <Waves className="w-4 h-4 text-[var(--accent)]" />
           </div>
-          <div className="metric-stat-value">4 – 8 m bins</div>
-          <div className="metric-stat-sub"><span>Continuous velocity column</span></div>
+          <div className="metric-stat-value text-amber">
+            {vectorData?.max_vertical_shear_s_inv ? `${vectorData.max_vertical_shear_s_inv.toFixed(4)} s⁻¹` : '0.0142 s⁻¹'}
+          </div>
+          <div className="metric-stat-sub"><span>Thermocline velocity gradient</span></div>
         </div>
 
         <div className="metric-stat-card">
           <div className="metric-stat-header">
-            <span>Mean Vertical Shear</span>
+            <span>Bulk Richardson (Ri)</span>
             <Compass className="w-4 h-4 text-[var(--success)]" />
           </div>
-          <div className="metric-stat-value">0.012 s⁻¹</div>
-          <div className="metric-stat-sub"><span>Richardson Number stability &gt; 0.25</span></div>
+          <div className="metric-stat-value text-emerald">
+            {vectorData?.bulk_richardson_number ? vectorData.bulk_richardson_number.toFixed(2) : '0.42'}
+          </div>
+          <div className="metric-stat-sub"><span>Ri &gt; 0.25: Laminar / Stable Flow</span></div>
         </div>
       </div>
+
+      {/* Phase 23: 3D Vector & Shear Depth Bin Profile Panel */}
+      {vectorData && (
+        <div className="analysis-panel">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <BarChart2 className="w-4 h-4 text-[var(--primary)]" />
+              <h3 style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                3D Current Velocity Vector Column — Station {vectorData.station_id} ({vectorData.mooring_array})
+              </h3>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Station:</span>
+              <select
+                value={activeAdcpStation}
+                onChange={(e) => setActiveAdcpStation(e.target.value)}
+                style={{
+                  fontSize: '11px',
+                  padding: '4px 8px',
+                  borderRadius: 'var(--radius-sm)',
+                  backgroundColor: 'var(--bg-surface)',
+                  color: 'var(--text-primary)',
+                  border: '1px solid var(--border)',
+                  fontWeight: 600
+                }}
+              >
+                <option value="ADCP-EQ-01">ADCP-EQ-01 (Equatorial 0°N, 77°E)</option>
+                <option value="ADCP-SOMALI-03">ADCP-SOMALI-03 (Somali Boundary 8.4°N)</option>
+                <option value="ADCP-EICC-02">ADCP-EICC-02 (East India Current 14°N)</option>
+              </select>
+
+              <Button
+                variant="outline"
+                size="sm"
+                leftIcon={<RefreshCw className={`w-3 h-3 ${isLoadingVectors ? 'animate-spin' : ''}`} />}
+                onClick={() => fetchVectorField(activeAdcpStation)}
+              >
+                Recalculate
+              </Button>
+            </div>
+          </div>
+
+          <div className="table-scroll-container">
+            <table className="ui-table">
+              <thead>
+                <tr>
+                  <th>Depth (m)</th>
+                  <th>Zonal u (East/West)</th>
+                  <th>Meridional v (North/South)</th>
+                  <th>Vertical w (Up/Down)</th>
+                  <th>Magnitude |u|</th>
+                  <th>Direction (deg)</th>
+                  <th>Vertical Shear (∂u/∂z)</th>
+                  <th>Richardson No. (Ri)</th>
+                  <th>Flow Stability</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(vectorData.vector_field || (vectorData as any).vectors || []).map((bin: any, idx: number) => {
+                  const u = bin.u_zonal_ms ?? bin.u_zonal_m_s ?? 0;
+                  const v = bin.v_meridional_ms ?? bin.v_meridional_m_s ?? 0;
+                  const w = bin.w_vertical_ms ?? bin.w_vertical_m_s;
+                  const mag = bin.velocity_magnitude_ms ?? bin.horizontal_speed_m_s ?? Math.sqrt(u*u + v*v);
+                  const dir = bin.current_direction_deg ?? bin.direction_deg ?? 0;
+                  const shear = bin.vertical_shear_s_inv ?? 0;
+                  const ri = bin.richardson_number ?? 0.5;
+
+                  return (
+                    <tr key={idx}>
+                      <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--text-primary)' }}>
+                        {bin.depth_m ?? bin.depth} m
+                      </td>
+                      <td style={{ fontFamily: 'var(--font-mono)', color: u >= 0 ? '#38bdf8' : '#f43f5e' }}>
+                        {u > 0 ? `+${u.toFixed(2)}` : u.toFixed(2)} m/s
+                      </td>
+                      <td style={{ fontFamily: 'var(--font-mono)', color: v >= 0 ? '#10b981' : '#f43f5e' }}>
+                        {v > 0 ? `+${v.toFixed(2)}` : v.toFixed(2)} m/s
+                      </td>
+                      <td style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-muted)' }}>
+                        {w !== undefined ? (w > 0 ? `+${w.toFixed(3)}` : w.toFixed(3)) : '0.000'} m/s
+                      </td>
+                      <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: '#f59e0b' }}>
+                        {mag.toFixed(2)} m/s
+                      </td>
+                      <td style={{ fontFamily: 'var(--font-mono)' }}>
+                        {dir.toFixed(1)}°
+                      </td>
+                      <td style={{ fontFamily: 'var(--font-mono)', color: shear > 0.01 ? '#f43f5e' : 'var(--text-primary)' }}>
+                        {shear.toFixed(4)} s⁻¹
+                      </td>
+                      <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
+                        {ri.toFixed(2)}
+                      </td>
+                      <td>
+                        <Badge variant={ri >= 0.25 ? 'success' : 'warning'}>
+                          {ri >= 0.25 ? 'Laminar' : 'Shear Instability'}
+                        </Badge>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Filter Bar */}
       <div className="filter-bar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
@@ -244,7 +406,7 @@ export const AdcpView: React.FC = () => {
               Zonal (u) and meridional (v) current component velocity streams integrated with numerical model verification engines.
             </p>
           </div>
-          <Badge variant="success">Broadband Acoustic Stream</Badge>
+          <Badge variant="success">Acoustic Doppler Array</Badge>
         </div>
 
         <div className="table-scroll-container">
@@ -253,7 +415,7 @@ export const AdcpView: React.FC = () => {
               <tr>
                 <th>Station Identifier</th>
                 <th>Mooring Array Target</th>
-                <th>Coordinates & Depth Range</th>
+                <th>Coordinates &amp; Depth Range</th>
                 <th>Acoustic Frequency</th>
                 <th>Peak Measured Current</th>
                 <th>Max Vertical Shear (∂u/∂z)</th>
@@ -310,4 +472,3 @@ export const AdcpView: React.FC = () => {
     </div>
   );
 };
-
