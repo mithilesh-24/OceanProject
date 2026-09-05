@@ -13,6 +13,11 @@ from app.api.v1.endpoints.models import router as models_router
 from app.api.v1.endpoints.analysis import router as analysis_router
 from app.api.v1.endpoints.pipelines import router as pipelines_router
 from app.api.v1.endpoints.visualization import router as visualization_router
+from app.api.v1.endpoints.workspace import router as workspaces_router
+from app.api.v1.endpoints.export import router as export_router
+from app.api.v1.endpoints.educational import router as educational_router
+from app.api.v1.endpoints.researcher import router as researcher_router
+from app.api.v1.endpoints.admin_telemetry import router as admin_telemetry_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -48,6 +53,11 @@ app.include_router(models_router, prefix=f"{settings.API_V1_STR}/models", tags=[
 app.include_router(analysis_router, prefix=f"{settings.API_V1_STR}/analysis", tags=["Scientific Analytics"])
 app.include_router(pipelines_router, prefix=f"{settings.API_V1_STR}/admin", tags=["Pipeline Administration"])
 app.include_router(visualization_router, prefix=f"{settings.API_V1_STR}/visualization", tags=["3D & 4D Visualization"])
+app.include_router(workspaces_router, prefix=f"{settings.API_V1_STR}/workspaces", tags=["Saved Workspaces"])
+app.include_router(export_router, prefix=f"{settings.API_V1_STR}/export", tags=["Data & Report Export"])
+app.include_router(educational_router, prefix=f"{settings.API_V1_STR}/educational", tags=["Educational Oceanography"])
+app.include_router(researcher_router, prefix=f"{settings.API_V1_STR}/research", tags=["Researcher Workbench"])
+app.include_router(admin_telemetry_router, prefix=f"{settings.API_V1_STR}/telemetry", tags=["Admin Telemetry"])
 
 @app.get("/")
 def root_index():

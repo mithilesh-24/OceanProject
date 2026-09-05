@@ -1,39 +1,43 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { GraduationCap, BookOpen, Compass, BarChart2, CheckCircle2, Award, Play } from 'lucide-react';
+import { GraduationCap, BookOpen, Compass, Award, Play, CheckCircle2, Globe, HelpCircle, ArrowRight, Lightbulb, RefreshCw } from 'lucide-react';
 import { Button } from '../components/UI/Button';
 import { Badge } from '../components/UI/Badge';
 import { useRole } from '../context/RoleContext';
+import { api } from '../services/apiClient';
 
 export const StudentWorkspaceView: React.FC = () => {
   const { profile } = useRole();
+  const [modules, setModules] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedModule, setSelectedModule] = useState<any>(null);
+  const [activeQuizIndex, setActiveQuizIndex] = useState(0);
+  const [selectedOption, setSelectedOption] = useState<number | null>(null);
+  const [showExplanation, setShowExplanation] = useState(false);
 
-  const lessons = [
-    {
-      id: 1,
-      title: 'Ocean Temperature & The Thermocline Layer',
-      badge: 'Completed',
-      desc: 'Understand how solar radiation warms the upper 50m mixed layer and examine the sharp vertical drop in temperature (thermocline) down to cold abyssal waters.',
-      tags: ['SST', 'Thermocline', 'Mixed Layer Depth'],
-      link: '/explorer',
-    },
-    {
-      id: 2,
-      title: 'Salinity Dynamics: Arabian Sea vs Bay of Bengal',
-      badge: 'In Progress',
-      desc: 'Investigate why excessive evaporation makes the Arabian Sea salty (>36 PSU) while monsoonal river discharge (Ganges-Brahmaputra) freshens the Bay of Bengal (<33 PSU).',
-      tags: ['PSAL', 'Evaporation', 'River Runoff'],
-      link: '/explorer',
-    },
-    {
-      id: 3,
-      title: 'Argo Profiling Cycle & Satellite Telemetry',
-      badge: 'Next Up',
-      desc: 'Follow the 10-day lifecycle of a robotic float: parking at 1,000m, descending to 2,000m, taking continuous CTD measurements on ascent, and transmitting data via Iridium.',
-      tags: ['Argo Float', 'CTD Rosette', 'Iridium Satellite'],
-      link: '/argo',
-    },
-  ];
+  useEffect(() => {
+    const fetchModules = async () => {
+      try {
+        setLoading(true);
+        const res = await api.getEducationalModules();
+        if (res && res.modules) {
+          setModules(res.modules);
+        }
+      } catch (err) {
+        console.error('Failed to load educational modules:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchModules();
+  }, []);
+
+  const handleStartQuiz = (mod: any) => {
+    setSelectedModule(mod);
+    setActiveQuizIndex(0);
+    setSelectedOption(null);
+    setShowExplanation(false);
+  };
 
   return (
     <div className="page-scroll-container space-y-5">
@@ -41,21 +45,21 @@ export const StudentWorkspaceView: React.FC = () => {
       <div className="welcome-banner">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="page-title">
+            <h1 className="page-title flex items-center gap-2">
               <GraduationCap className="w-5 h-5 text-[var(--primary)]" />
-              Ocean Science Educational Workspace
+              Student Oceanography Learning Workspace
             </h1>
-            <Badge variant="primary">STUDENT MODE</Badge>
+            <Badge variant="primary">Phase 18</Badge>
           </div>
-          <p className="text-xs text-[var(--text-muted)] mt-1">
-            Enrolled Student: <strong className="text-[var(--text-primary)]">{profile.name}</strong> • {profile.organization} • {profile.course}
+          <p className="page-subtitle">
+            Curated interactive oceanographic modules, guided 3D Cesium tours, and step-by-step physics simulations.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
           <Link to="/explorer">
-            <Button variant="primary" size="sm" leftIcon={<Compass className="w-4 h-4" />}>
-              Launch 3D Earth Explorer
+            <Button variant="primary" size="sm" leftIcon={<Globe className="w-4 h-4" />}>
+              Open 3D Learning Globe
             </Button>
           </Link>
         </div>
@@ -66,73 +70,227 @@ export const StudentWorkspaceView: React.FC = () => {
         <div className="metric-stat-card">
           <div className="metric-stat-header">
             <span>Course Progress</span>
-            <CheckCircle2 className="w-4 h-4 text-[var(--success)]" />
+            <CheckCircle2 className="w-4 h-4 text-emerald" />
           </div>
-          <div className="metric-stat-value text-[var(--success)]">68%</div>
+          <div className="metric-stat-value text-emerald">68%</div>
           <div className="metric-stat-sub"><span>2 of 3 core modules completed</span></div>
         </div>
 
         <div className="metric-stat-card">
           <div className="metric-stat-header">
-            <span>Interactive Labs</span>
-            <BookOpen className="w-4 h-4 text-[var(--primary)]" />
+            <span>3D Guided Tours</span>
+            <Compass className="w-4 h-4 text-sky" />
           </div>
-          <div className="metric-stat-value">5 Completed</div>
-          <div className="metric-stat-sub"><span>3D GIS depth slicing exercises</span></div>
+          <div className="metric-stat-value">6 Steps</div>
+          <div className="metric-stat-sub"><span>Interactive camera fly-tos</span></div>
         </div>
 
         <div className="metric-stat-card">
           <div className="metric-stat-header">
-            <span>Explored Floats</span>
-            <Compass className="w-4 h-4 text-[var(--accent)]" />
+            <span>Explored Profiles</span>
+            <BookOpen className="w-4 h-4 text-cyan" />
           </div>
-          <div className="metric-stat-value">14 Profiles</div>
-          <div className="metric-stat-sub"><span>Indian Ocean Argo trajectories</span></div>
+          <div className="metric-stat-value">18 CTD Casts</div>
+          <div className="metric-stat-sub"><span>Thermocline depth models</span></div>
         </div>
 
         <div className="metric-stat-card">
           <div className="metric-stat-header">
-            <span>Badge Level</span>
-            <Award className="w-4 h-4 text-[var(--warning)]" />
+            <span>Honor Badge</span>
+            <Award className="w-4 h-4 text-amber" />
           </div>
-          <div className="metric-stat-value">Junior Oceanographer</div>
-          <div className="metric-stat-sub"><span>Next: Hydrographic Analyst</span></div>
+          <div className="metric-stat-value text-amber">Hydrographic Explorer</div>
+          <div className="metric-stat-sub"><span>Level 3 Certified</span></div>
         </div>
       </div>
 
       {/* Educational Modules Grid */}
       <div className="grid-cols-3">
-        {lessons.map((lesson) => (
-          <div key={lesson.id} className="ui-card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '12px' }}>
+        {modules.map((mod) => (
+          <div key={mod.id} className="ui-card" style={{ padding: '18px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '14px' }}>
             <div>
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
-                <h3 style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                  {lesson.title}
-                </h3>
-                <Badge variant={lesson.badge === 'Completed' ? 'success' : lesson.badge === 'In Progress' ? 'primary' : 'neutral'}>
-                  {lesson.badge}
-                </Badge>
+                <span className={mod.difficulty_level === 'Beginner' ? 'badge-emerald' : mod.difficulty_level === 'Intermediate' ? 'badge-cyan' : 'badge-amber'}>
+                  {mod.difficulty_level}
+                </span>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                  {mod.duration_minutes} Mins
+                </span>
               </div>
 
-              <p style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.5, marginTop: '8px' }}>
-                {lesson.desc}
+              <h3 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '8px' }}>
+                {mod.title}
+              </h3>
+              <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                {mod.subtitle}
               </p>
 
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '12px' }}>
-                {lesson.tags.map((t, idx) => (
-                  <Badge key={idx} variant="outline" style={{ fontSize: '10px' }}>{t}</Badge>
-                ))}
+              <p style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.5, marginTop: '10px' }}>
+                {mod.summary}
+              </p>
+
+              {/* Key Takeaways */}
+              <div style={{ marginTop: '12px', padding: '10px 12px', backgroundColor: 'var(--bg-surface-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+                <span style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>
+                  Core Concepts
+                </span>
+                <ul style={{ margin: 0, paddingLeft: '16px', fontSize: '11.5px', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  {(mod.key_takeaways || []).map((t: string, idx: number) => (
+                    <li key={idx}>{t}</li>
+                  ))}
+                </ul>
               </div>
             </div>
 
-            <Link to={lesson.link} style={{ textDecoration: 'none' }}>
-              <Button variant="outline" size="sm" rightIcon={<Play className="w-3.5 h-3.5" />} className="w-full">
-                Open Interactive Lab
-              </Button>
-            </Link>
+            {/* Actions: 3D Tour & Quiz */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingTop: '6px' }}>
+              {mod.tour_steps && mod.tour_steps.length > 0 && (
+                <Link
+                  to={`/explorer?lat=${mod.tour_steps[0].target_lat}&lon=${mod.tour_steps[0].target_lon}&zoom=basin`}
+                  style={{ textDecoration: 'none' }}
+                >
+                  <Button variant="primary" size="sm" leftIcon={<Globe className="w-3.5 h-3.5" />} className="w-full">
+                    Start 3D Guided Tour ({mod.tour_steps.length} Steps)
+                  </Button>
+                </Link>
+              )}
+
+              {mod.quiz_questions && mod.quiz_questions.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  leftIcon={<HelpCircle className="w-3.5 h-3.5" />}
+                  onClick={() => handleStartQuiz(mod)}
+                  className="w-full"
+                >
+                  Take Knowledge Check ({mod.quiz_questions.length} Questions)
+                </Button>
+              )}
+            </div>
           </div>
         ))}
       </div>
+
+      {/* Quiz Modal */}
+      {selectedModule && selectedModule.quiz_questions && (
+        <div className="ui-modal-backdrop" onClick={() => setSelectedModule(null)}>
+          <div className="ui-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '560px' }}>
+            <div className="ui-modal-header">
+              <div>
+                <h3 className="ui-modal-title">Knowledge Check: {selectedModule.title}</h3>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                  Question {activeQuizIndex + 1} of {selectedModule.quiz_questions.length}
+                </span>
+              </div>
+              <button
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+                onClick={() => setSelectedModule(null)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="ui-modal-body space-y-4">
+              <p style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.4 }}>
+                {selectedModule.quiz_questions[activeQuizIndex].question}
+              </p>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {selectedModule.quiz_questions[activeQuizIndex].options.map((opt: string, optIdx: number) => {
+                  const isCorrect = optIdx === selectedModule.quiz_questions[activeQuizIndex].correct_index;
+                  const isChosen = selectedOption === optIdx;
+
+                  let bg = 'var(--bg-surface)';
+                  let border = '1px solid var(--border)';
+                  let text = 'var(--text-primary)';
+
+                  if (showExplanation) {
+                    if (isCorrect) {
+                      bg = 'rgba(16, 185, 129, 0.15)';
+                      border = '1px solid #10b981';
+                      text = '#10b981';
+                    } else if (isChosen) {
+                      bg = 'rgba(244, 63, 94, 0.15)';
+                      border = '1px solid #f43f5e';
+                      text = '#f43f5e';
+                    }
+                  } else if (isChosen) {
+                    bg = 'var(--primary-subtle)';
+                    border = '1px solid var(--primary)';
+                  }
+
+                  return (
+                    <div
+                      key={optIdx}
+                      onClick={() => {
+                        if (!showExplanation) {
+                          setSelectedOption(optIdx);
+                        }
+                      }}
+                      style={{
+                        padding: '10px 14px',
+                        borderRadius: 'var(--radius-md)',
+                        backgroundColor: bg,
+                        border: border,
+                        color: text,
+                        cursor: showExplanation ? 'default' : 'pointer',
+                        fontSize: '12.5px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <span>{opt}</span>
+                      {showExplanation && isCorrect && <CheckCircle2 className="w-4 h-4 text-emerald shrink-0" />}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Explanation Banner */}
+              {showExplanation && (
+                <div style={{ padding: '12px', backgroundColor: 'var(--bg-surface-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                  <Lightbulb className="w-4 h-4 text-amber shrink-0 mt-0.5" />
+                  <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.45 }}>
+                    <strong>Scientific Explanation:</strong> {selectedModule.quiz_questions[activeQuizIndex].explanation}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="ui-modal-footer">
+              {!showExplanation ? (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  disabled={selectedOption === null}
+                  onClick={() => setShowExplanation(true)}
+                >
+                  Submit Answer
+                </Button>
+              ) : activeQuizIndex < selectedModule.quiz_questions.length - 1 ? (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => {
+                    setActiveQuizIndex((prev) => prev + 1);
+                    setSelectedOption(null);
+                    setShowExplanation(false);
+                  }}
+                  rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
+                >
+                  Next Question
+                </Button>
+              ) : (
+                <Button variant="primary" size="sm" onClick={() => setSelectedModule(null)}>
+                  Complete Quiz
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

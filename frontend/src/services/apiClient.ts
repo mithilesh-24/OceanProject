@@ -584,22 +584,120 @@ class ApiClient {
     return this.fetchJson<any>(`/admin/sync/${id}`, { method: 'POST' });
   }
 
-  // 3D & 4D Visualization
-  async getTimeline(): Promise<TimelineData> {
-    return this.fetchJson<TimelineData>('/visualization/timeline');
-  }
-
-  async getDepthLayers(): Promise<DepthLayerConfig[]> {
-    return this.fetchJson<DepthLayerConfig[]>('/visualization/depth-layers');
-  }
-
-  async getSnapshotAtTime(params: { timestamp?: string; variable?: string; depth?: number }): Promise<TimeSnapshotData> {
+  // Phase 16: Saved Analysis & Workspaces
+  async getWorkspaces(params?: { category?: string; search?: string }): Promise<any> {
     const p = new URLSearchParams();
-    if (params.timestamp) p.append('timestamp', params.timestamp);
-    if (params.variable) p.append('variable', params.variable);
-    if (params.depth !== undefined) p.append('depth', params.depth.toString());
+    if (params?.category && params.category !== 'all') p.append('category', params.category);
+    if (params?.search) p.append('search', params.search);
     const qs = p.toString() ? `?${p.toString()}` : '';
-    return this.fetchJson<TimeSnapshotData>(`/visualization/state-at-time${qs}`);
+    return this.fetchJson<any>(`/workspaces${qs}`);
+  }
+
+  async createWorkspace(data: any): Promise<any> {
+    return this.fetchJson<any>('/workspaces', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getWorkspace(id: string): Promise<any> {
+    return this.fetchJson<any>(`/workspaces/${id}`);
+  }
+
+  async deleteWorkspace(id: string): Promise<any> {
+    return this.fetchJson<any>(`/workspaces/${id}`, { method: 'DELETE' });
+  }
+
+  async cloneWorkspace(id: string): Promise<any> {
+    return this.fetchJson<any>(`/workspaces/${id}/clone`, { method: 'POST' });
+  }
+
+  // Phase 17: Multi-Format Data & Report Export Engine
+  async exportOceanData(params: {
+    export_format?: string;
+    data_source?: string;
+    variable?: string;
+    region?: string;
+    depth_m?: number;
+    start_date?: string;
+    end_date?: string;
+    lat_min?: number;
+    lat_max?: number;
+    lon_min?: number;
+    lon_max?: number;
+    include_metadata?: boolean;
+  }): Promise<any> {
+    return this.fetchJson<any>('/export/data', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  }
+
+  async exportScientificBulletin(params: {
+    title?: string;
+    report_type?: string;
+    model?: string;
+    variable?: string;
+    region?: string;
+    include_taylor_metrics?: boolean;
+    include_mhw_alerts?: boolean;
+    include_regional_rankings?: boolean;
+    format?: string;
+  }): Promise<any> {
+    return this.fetchJson<any>('/export/bulletin', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  }
+
+  // Phase 18: Student Educational Oceanography Workspace
+  async getEducationalModules(): Promise<any> {
+    return this.fetchJson<any>('/educational/modules');
+  }
+
+  async getEducationalModule(id: string): Promise<any> {
+    return this.fetchJson<any>(`/educational/modules/${id}`);
+  }
+
+  // Phase 19: Researcher Scientific Workbench
+  async computeDensityStratification(params: {
+    depth_m: number[];
+    temperature_c: number[];
+    salinity_psu: number[];
+    latitude?: number;
+  }): Promise<any> {
+    return this.fetchJson<any>('/research/compute/density-stratification', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  }
+
+  async generateResearchQuery(params: {
+    query_type: string;
+    variable: string;
+    depth_range?: number[];
+    time_range?: string[];
+    lat_range?: number[];
+    lon_range?: number[];
+  }): Promise<any> {
+    return this.fetchJson<any>('/research/query/generate', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  }
+
+  // Phase 20: Admin Platform & Telemetry
+  async getSystemTelemetry(): Promise<any> {
+    return this.fetchJson<any>('/telemetry/health/telemetry');
+  }
+
+  async triggerPipelineSync(pipelineId: string): Promise<any> {
+    return this.fetchJson<any>(`/telemetry/pipelines/${pipelineId}/trigger`, { method: 'POST' });
+  }
+
+  async flushPlatformCache(target?: string): Promise<any> {
+    const qs = target ? `?target=${target}` : '';
+    return this.fetchJson<any>(`/telemetry/cache/flush${qs}`, { method: 'POST' });
   }
 }
 

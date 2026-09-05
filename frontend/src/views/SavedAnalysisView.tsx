@@ -1,130 +1,350 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { Bookmark, Play, Trash2, Calendar, Database, Layers, ArrowRight } from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '../components/UI/Card';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Bookmark, Play, Trash2, Calendar, Copy, Plus, Search, Star, ExternalLink, Globe, Filter, Layers, RefreshCw } from 'lucide-react';
 import { Button } from '../components/UI/Button';
 import { Badge } from '../components/UI/Badge';
+import { Input } from '../components/UI/Input';
+import { Select } from '../components/UI/Select';
+import { api } from '../services/apiClient';
 
 export const SavedAnalysisView: React.FC = () => {
-  const savedSessions = [
-    {
-      id: 'saved_1',
-      name: 'HYCOM vs Bay of Bengal Argo (Summer Monsoonal Profile)',
-      model: 'HYCOM 1/12° Global',
-      obs: 'INCOIS Argo Floats',
-      variables: ['Temperature', 'Salinity'],
-      region: 'Bay of Bengal (8°N–22°N, 80°E–94°E)',
-      depth: '0 – 500 m',
-      samples: '1,840 profiles',
-      date: 'Aug 28, 2026',
-      rmse: '0.48 °C',
-      bias: '+0.12 °C',
-    },
-    {
-      id: 'saved_2',
-      name: 'ROMS Coastal Upwelling Error Analysis (Somali & Arabian Coast)',
-      model: 'ROMS Regional Ocean',
-      obs: 'OMNI Moored Buoys',
-      variables: ['SST', 'Currents (u, v)'],
-      region: 'Arabian Sea (10°N–25°N, 55°E–75°E)',
-      depth: 'Surface to 200 m',
-      samples: '720 station records',
-      date: 'Sep 02, 2026',
-      rmse: '0.61 °C',
-      bias: '-0.08 °C',
-    },
-    {
-      id: 'saved_3',
-      name: 'NEMO Thermocline Depth Verification',
-      model: 'NEMO Global Physics',
-      obs: 'Argo Deep Floats',
-      variables: ['Temperature', 'Pressure'],
-      region: 'Equatorial Indian Ocean',
-      depth: '0 – 2,000 m',
-      samples: '960 profiles',
-      date: 'Sep 04, 2026',
-      rmse: '0.39 °C',
-      bias: '+0.05 °C',
-    },
-  ];
+  const navigate = useNavigate();
+  const [workspaces, setWorkspaces] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [newDesc, setNewDesc] = useState('');
+  const [newCategory, setNewCategory] = useState('comparison');
+
+  const fetchWorkspaces = async () => {
+    try {
+      setLoading(true);
+      const res = await api.getWorkspaces({
+        category: categoryFilter !== 'all' ? categoryFilter : undefined,
+        search: searchQuery || undefined
+      });
+      if (res && res.workspaces) {
+        setWorkspaces(res.workspaces);
+      }
+    } catch (err) {
+      console.error('Failed to load workspaces:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchWorkspaces();
+  }, [categoryFilter, searchQuery]);
+
+  const handleClone = async (id: string) => {
+    try {
+      await api.cloneWorkspace(id);
+      fetchWorkspaces();
+    } catch (err) {
+      console.error('Clone failed:', err);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await api.deleteWorkspace(id);
+      fetchWorkspaces();
+    } catch (err) {
+      console.error('Delete failed:', err);
+    }
+  };
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTitle.trim()) return;
+    try {
+      await api.createWorkspace({
+        title: newTitle,
+        description: newDesc,
+        category: newCategory,
+        tags: [newCategory.toUpperCase(), "Indian Ocean"],
+        state: {
+          selected_model: "hycom",
+          comparison_model: "roms",
+          selected_variable: "temperature",
+          depth_level: 0.0,
+          region: "indian_ocean"
+        }
+      });
+      setNewTitle('');
+      setNewDesc('');
+      setShowCreateModal(false);
+      fetchWorkspaces();
+    } catch (err) {
+      console.error('Creation failed:', err);
+    }
+  };
 
   return (
-    <div className="page-scroll-container">
+    <div className="page-scroll-container space-y-5">
       {/* Header */}
       <div className="page-header-row">
         <div>
-          <h1 className="page-title">
-            <Bookmark className="w-5 h-5 text-[var(--primary)]" />
-            Saved Analyses & Configurations
-          </h1>
+          <div className="flex items-center gap-2">
+            <h1 className="page-title flex items-center gap-2">
+              <Bookmark className="w-5 h-5 text-[var(--primary)]" />
+              Saved Analyses &amp; Comparison Workspaces
+            </h1>
+            <Badge variant="primary">Phase 16</Badge>
+          </div>
           <p className="page-subtitle">
-            Persisted model validation sessions, cross-comparison queries, and regional analysis workspaces.
+            Persisted model validation sessions, cross-comparison queries, bounding boxes, and research presets.
           </p>
         </div>
 
-        <Link to="/comparison">
-          <Button variant="primary" size="sm" leftIcon={<Play className="w-3.5 h-3.5" />}>
-            New Comparison Session
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchWorkspaces}
+            leftIcon={<RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />}
+          >
+            Refresh
           </Button>
-        </Link>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => setShowCreateModal(true)}
+            leftIcon={<Plus className="w-3.5 h-3.5" />}
+          >
+            Save New Workspace
+          </Button>
+        </div>
       </div>
 
-      {/* Saved Sessions Grid */}
+      {/* Filter Toolbar */}
+      <div className="filter-bar">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+          <Search className="w-4 h-4 text-muted" />
+          <div style={{ width: '280px' }}>
+            <Input
+              size="sm"
+              placeholder="Search workspaces, models, or tags..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {/* Category Filter Pills */}
+        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+          {[
+            { key: 'all', label: 'All Workspaces' },
+            { key: 'comparison', label: 'Model Comparison' },
+            { key: 'accuracy', label: 'Accuracy & Taylor' },
+            { key: 'anomaly', label: 'Marine Heatwaves' },
+            { key: 'statistical', label: 'Statistics' }
+          ].map((cat) => (
+            <button
+              key={cat.key}
+              onClick={() => setCategoryFilter(cat.key)}
+              style={{
+                padding: '4px 10px',
+                fontSize: '11px',
+                fontWeight: 600,
+                borderRadius: 'var(--radius-sm)',
+                border: categoryFilter === cat.key ? '1px solid var(--primary)' : '1px solid var(--border)',
+                backgroundColor: categoryFilter === cat.key ? 'var(--primary-subtle)' : 'var(--bg-surface)',
+                color: categoryFilter === cat.key ? 'var(--primary)' : 'var(--text-secondary)',
+                cursor: 'pointer',
+              }}
+            >
+              {cat.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Workspaces List */}
       <div className="space-y-4">
-        {savedSessions.map((session) => (
-          <div key={session.id} className="ui-card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {workspaces.map((ws) => (
+          <div key={ws.id} className="ui-card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <h3 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                  {session.name}
+                  {ws.title}
                 </h3>
-                <Badge variant="primary">{session.model}</Badge>
-                <Badge variant="success">{session.obs}</Badge>
+                <Badge variant={ws.category === 'anomaly' ? 'danger' : ws.category === 'accuracy' ? 'success' : 'primary'}>
+                  {ws.category.toUpperCase()}
+                </Badge>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: 'var(--text-muted)' }}>
+                  <Star className="w-3 h-3 text-amber fill-amber" />
+                  <span>{ws.star_count}</span>
+                </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--text-muted)' }}>
-                <Calendar className="w-3.5 h-3.5" />
-                <span>Saved on {session.date}</span>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '11px', color: 'var(--text-muted)' }}>
+                <span>Author: <strong style={{ color: 'var(--text-secondary)' }}>{ws.author}</strong></span>
+                <span>•</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <Calendar className="w-3.5 h-3.5" />
+                  <span>{new Date(ws.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                </div>
               </div>
             </div>
 
-            <div className="grid-cols-4" style={{ backgroundColor: 'var(--bg-surface-secondary)', padding: '10px 12px', borderRadius: 'var(--radius-md)' }}>
+            <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+              {ws.description}
+            </p>
+
+            {/* Filter Configuration Grid */}
+            <div className="grid-cols-4" style={{ backgroundColor: 'var(--bg-surface-secondary)', padding: '10px 14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
               <div>
-                <span style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, display: 'block' }}>Variables</span>
-                <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)' }}>{session.variables.join(', ')}</span>
+                <span style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, display: 'block' }}>Models</span>
+                <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+                  {ws.state?.selected_model?.toUpperCase() || 'HYCOM'} vs {ws.state?.comparison_model?.toUpperCase() || 'ROMS'}
+                </span>
               </div>
               <div>
-                <span style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, display: 'block' }}>Depth Band</span>
-                <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{session.depth}</span>
+                <span style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, display: 'block' }}>Variable &amp; Depth</span>
+                <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+                  {ws.state?.selected_variable || 'Temperature'} @ {ws.state?.depth_level ?? 0}m
+                </span>
               </div>
               <div>
-                <span style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, display: 'block' }}>Sample Count</span>
-                <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{session.samples}</span>
+                <span style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, display: 'block' }}>Geographic Region</span>
+                <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                  {ws.state?.region?.replace('_', ' ').toUpperCase() || 'INDIAN OCEAN'}
+                </span>
               </div>
               <div>
-                <span style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, display: 'block' }}>Computed RMSE / Bias</span>
-                <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--primary)', fontFamily: 'var(--font-mono)' }}>{session.rmse} / {session.bias}</span>
+                <span style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, display: 'block' }}>Session ID</span>
+                <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--primary)', fontFamily: 'var(--font-mono)' }}>
+                  #{ws.id}
+                </span>
               </div>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '4px' }}>
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                Region: <span style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>{session.region}</span>
-              </span>
+            {/* Actions & Tags */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', paddingTop: '4px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                {(ws.tags || []).map((t: string, idx: number) => (
+                  <span
+                    key={idx}
+                    style={{
+                      fontSize: '10.5px',
+                      padding: '2px 8px',
+                      borderRadius: 'var(--radius-sm)',
+                      backgroundColor: 'var(--bg-surface-secondary)',
+                      border: '1px solid var(--border-subtle)',
+                      color: 'var(--text-secondary)'
+                    }}
+                  >
+                    #{t}
+                  </span>
+                ))}
+              </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Link to="/comparison">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  leftIcon={<Copy className="w-3.5 h-3.5" />}
+                  onClick={() => handleClone(ws.id)}
+                >
+                  Clone Preset
+                </Button>
+                <Link to={`/explorer?region=${ws.state?.region || 'indian_ocean'}`}>
+                  <Button variant="outline" size="sm" leftIcon={<Globe className="w-3.5 h-3.5" />}>
+                    3D Globe
+                  </Button>
+                </Link>
+                <Link to={`/comparison?modelA=${ws.state?.selected_model || 'hycom'}&modelB=${ws.state?.comparison_model || 'roms'}`}>
                   <Button variant="primary" size="sm" leftIcon={<Play className="w-3.5 h-3.5" />}>
                     Resume Session
                   </Button>
                 </Link>
-                <Button variant="outline" size="sm" iconOnly aria-label="Delete Session">
-                  <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleDelete(ws.id)}
+                  aria-label="Delete Session"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose" />
                 </Button>
               </div>
             </div>
           </div>
         ))}
       </div>
+
+      {/* Create Workspace Modal */}
+      {showCreateModal && (
+        <div className="ui-modal-backdrop" onClick={() => setShowCreateModal(false)}>
+          <div className="ui-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="ui-modal-header">
+              <h3 className="ui-modal-title">Save New Analysis Workspace</h3>
+              <button
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+                onClick={() => setShowCreateModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+            <form onSubmit={handleCreate}>
+              <div className="ui-modal-body space-y-3">
+                <div className="ui-form-group">
+                  <label className="ui-label">Workspace Title</label>
+                  <Input
+                    placeholder="e.g. Somali Current Coastal Upwelling Validation"
+                    value={newTitle}
+                    onChange={(e) => setNewTitle(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="ui-form-group">
+                  <label className="ui-label">Category</label>
+                  <Select
+                    value={newCategory}
+                    onChange={(e) => setNewCategory(e.target.value)}
+                    options={[
+                      { value: 'comparison', label: 'Model vs Observation Comparison' },
+                      { value: 'accuracy', label: 'Accuracy & Taylor Decomposition' },
+                      { value: 'anomaly', label: 'Marine Heatwave & Anomaly' },
+                      { value: 'statistical', label: 'Comprehensive Statistical Baseline' },
+                      { value: 'custom', label: 'Custom Hydrographic Research' }
+                    ]}
+                  />
+                </div>
+                <div className="ui-form-group">
+                  <label className="ui-label">Description / Research Notes</label>
+                  <textarea
+                    rows={3}
+                    placeholder="Document active boundary conditions, assimilated Argo cycles, or key findings..."
+                    value={newDesc}
+                    onChange={(e) => setNewDesc(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      borderRadius: 'var(--radius-md)',
+                      backgroundColor: 'var(--bg-surface)',
+                      border: '1px solid var(--border)',
+                      color: 'var(--text-primary)',
+                      fontSize: '13px'
+                    }}
+                  />
+                </div>
+              </div>
+              <div className="ui-modal-footer">
+                <Button variant="outline" size="sm" type="button" onClick={() => setShowCreateModal(false)}>
+                  Cancel
+                </Button>
+                <Button variant="primary" size="sm" type="submit">
+                  Save Workspace
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
