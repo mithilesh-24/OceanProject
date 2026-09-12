@@ -32,12 +32,17 @@ from app.api.v1.endpoints.auth import router as auth_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Initialize and seed database on startup
-    db = SessionLocal()
+    # Initialize and seed database on startup — never crash the server if DB is unavailable
     try:
-        init_db(db)
-    finally:
-        db.close()
+        db = SessionLocal()
+        try:
+            init_db(db)
+        except Exception as e:
+            print(f"[Bluesphere] WARNING: DB init skipped — {e}")
+        finally:
+            db.close()
+    except Exception as e:
+        print(f"[Bluesphere] WARNING: Could not create DB session — {e}")
     yield
 
 app = FastAPI(

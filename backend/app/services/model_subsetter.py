@@ -51,25 +51,31 @@ class ModelSubsetter:
         Default bounding box covers the North & Central Indian Ocean (45°E–98°E, 0°N–25°N).
         """
         # Coordinate bounds
+        # Coordinate bounds
         if bbox and len(bbox) == 4:
             min_lat, min_lon, max_lat, max_lon = bbox
+            lat_span = max(0.2, max_lat - min_lat)
+            lon_span = max(0.2, max_lon - min_lon)
+            # High-resolution regional model grid (approx 32 x 32 samples across region)
+            lat_step = max(0.02, round(lat_span / 30.0, 3))
+            lon_step = max(0.02, round(lon_span / 30.0, 3))
         else:
             min_lat, max_lat = 0.0, 24.0
             min_lon, max_lon = 50.0, 95.0
+            lat_span = 24.0
+            lon_span = 45.0
+            if model_id == "roms":
+                lat_step = 0.8
+                lon_step = 0.8
+            elif model_id == "hycom":
+                lat_step = 1.0
+                lon_step = 1.0
+            else: # nemo
+                lat_step = 1.2
+                lon_step = 1.2
 
-        # Step size based on model resolution
-        if model_id == "roms":
-            lat_step = 0.8
-            lon_step = 0.8
-        elif model_id == "hycom":
-            lat_step = 1.0
-            lon_step = 1.0
-        else: # nemo
-            lat_step = 1.2
-            lon_step = 1.2
-
-        lats = np.arange(min_lat, max_lat + 0.1, lat_step).round(2).tolist()
-        lons = np.arange(min_lon, max_lon + 0.1, lon_step).round(2).tolist()
+        lats = np.arange(min_lat, max_lat + lat_step * 0.5, lat_step).round(3).tolist()
+        lons = np.arange(min_lon, max_lon + lon_step * 0.5, lon_step).round(3).tolist()
 
         n_lat = len(lats)
         n_lon = len(lons)
@@ -121,7 +127,20 @@ class ModelSubsetter:
                         lat_gradient = -0.08 * (lat - 5.0)
                         bob_warmth = 0.8 * math.exp(-((lon - 88.0)**2 + (lat - 15.0)**2) / 100.0)
                         
-                        surf_temp = 28.6 + lat_gradient - upwelling_cooling + bob_warmth
+                        # Mesoscale eddy field & thermal pinnacles across regional domain:
+                        rel_x = (lon - min_lon) / (lon_span + 1e-5)
+                        rel_y = (lat - min_lat) / (lat_span + 1e-5)
+                        
+                        # Prominent warm-core thermal peak matching Reference Image 2
+                        warm_pinnacle = 3.4 * math.exp(-(((rel_x - 0.62) / 0.14)**2 + ((rel_y - 0.68) / 0.13)**2))
+                        secondary_ridge = 2.2 * math.exp(-(((rel_x - 0.32) / 0.20)**2 + ((rel_y - 0.38) / 0.18)**2))
+                        eddy_ridges = (
+                            1.3 * math.sin(rel_x * math.pi * 3.5) * math.cos(rel_y * math.pi * 3.0) +
+                            0.7 * math.sin(rel_x * math.pi * 6.0 + 1.0) * math.sin(rel_y * math.pi * 5.0) -
+                            1.4 * math.exp(-(((rel_x - 0.22) / 0.14)**2 + ((rel_y - 0.78) / 0.14)**2)) # Cold eddy trench
+                        )
+                        
+                        surf_temp = 27.6 + lat_gradient - upwelling_cooling + bob_warmth + warm_pinnacle + secondary_ridge + eddy_ridges
                         # Deep ocean asymptotes to ~2.0°C - 1.5°C
                         val = round(2.0 + (surf_temp - 2.0) * depth_decay, 2)
                         
@@ -168,6 +187,24 @@ class ModelSubsetter:
                                 "speed": speed,
                                 "angle_deg": round(math.degrees(math.atan2(v_val, u_val)), 1)
                             })
+                    elif var_clean in ["density", "rho", "potential_density", "pressure"]:
+                        # Potential density (sigma-theta) for Indian Ocean
+                        # Surface reference ~1022.5 kg/m³, deep ~1027.8 kg/m³
+                        # Arabian Sea denser surface due to high salinity & upwelling cooling
+                        arabian_density = 0.6 * math.exp(-((lon - 62.0)**2 + (lat - 17.0)**2) / 90.0)
+                        bob_freshening_density = -0.9 * math.exp(-((lon - 89.0)**2 + (lat - 20.0)**2) / 70.0)
+                        upwelling_dense = 0.4 * math.exp(-((lon - 54.0)**2 + (lat - 12.0)**2) / 50.0)
+                        
+                        rel_x = (lon - min_lon) / (lon_span + 1e-5)
+                        rel_y = (lat - min_lat) / (lat_span + 1e-5)
+                        # Mesoscale density anomalies (anticyclonic eddies = lighter, cyclonic = denser)
+                        eddy_density = (
+                            -0.3 * math.exp(-(((rel_x - 0.62) / 0.14)**2 + ((rel_y - 0.68) / 0.13)**2)) +  # warm core lighter
+                             0.25 * math.exp(-(((rel_x - 0.32) / 0.20)**2 + ((rel_y - 0.38) / 0.18)**2))   # cold core denser
+                        )
+                        surf_density = 1022.8 + arabian_density + bob_freshening_density + upwelling_dense + eddy_density
+                        # Deep water: ~1027.5 kg/m³ (North Atlantic Deep Water signature)
+                        val = round(1027.5 + (surf_density - 1027.5) * math.exp(-depth_m / 600.0), 3)
                     else:
                         val = 0.0
 
@@ -195,6 +232,8 @@ class ModelSubsetter:
             "salinity": "PSU",
             "velocity": "m/s",
             "currents": "m/s",
+            "density": "kg/m³",
+            "pressure": "kg/m³",
             "ssh": "m"
         }
         units = unit_map.get(var_clean, "units")

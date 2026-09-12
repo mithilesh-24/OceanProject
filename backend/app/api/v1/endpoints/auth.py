@@ -43,6 +43,7 @@ class RegisterRequest(BaseModel):
     organization: Optional[str] = "Oceanographic Institute"
     department: Optional[str] = None
     course: Optional[str] = None
+    year: Optional[str] = None
     research_area: Optional[str] = None
 
 class UserResponse(BaseModel):
@@ -53,6 +54,7 @@ class UserResponse(BaseModel):
     organization: Optional[str] = None
     department: Optional[str] = None
     course: Optional[str] = None
+    year: Optional[str] = None
     research_area: Optional[str] = None
 
 class AuthResponse(BaseModel):
@@ -71,7 +73,7 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
             # Auto-provision user for seamless onboarding on Neon DB
             default_names = {
                 "student": "Student Scholar",
-                "researcher": "Ocean Scientist",
+                "researcher": "Dr. Sunita Varma",
                 "admin": "System Administrator"
             }
             default_orgs = {
@@ -79,12 +81,33 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
                 "researcher": "INCOIS (Ministry of Earth Sciences)",
                 "admin": "National Ocean Data Center"
             }
+            default_depts = {
+                "student": "Department of Ocean Engineering",
+                "researcher": "Ocean Dynamics & Modeling Division",
+                "admin": "Infrastructure & Data Ingestion"
+            }
+            default_courses = {
+                "student": "Physical Oceanography & Hydrography"
+            }
+            default_years = {
+                "student": "2nd Year"
+            }
+            default_emails = {
+                "student": "student@bluesphere.org",
+                "researcher": "s.varma@incois.gov.in",
+                "admin": "admin@sih2026-ocean.gov.in"
+            }
+            derived_name = email_clean.split('@')[0].replace('.', ' ').replace('_', ' ').title() if '@' in email_clean else "Ocean Specialist"
+            is_demo_email = email_clean in ["student@bluesphere.org", "s.varma@incois.gov.in", "admin@sih2026-ocean.gov.in"]
             user = User(
                 email=email_clean,
                 hashed_password=hash_password(payload.password),
-                name=default_names.get(payload.role, "Ocean Specialist"),
+                name=default_names.get(payload.role, "Ocean Specialist") if is_demo_email else derived_name,
                 role=payload.role,
-                organization=default_orgs.get(payload.role, "BlueSphere Ocean Platform"),
+                organization=default_orgs.get(payload.role, "Oceanographic Institute") if is_demo_email else "Indian Institute of Technology (IIT) Madras",
+                department=default_depts.get(payload.role) if is_demo_email else "Department of Ocean Engineering",
+                course=default_courses.get(payload.role) if is_demo_email else "Physical Oceanography & Hydrography",
+                year=default_years.get(payload.role) if is_demo_email else "2nd Year",
                 last_login=datetime.utcnow()
             )
             db.add(user)
@@ -131,9 +154,62 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
             organization=user.organization,
             department=user.department,
             course=user.course,
+            year=user.year,
             research_area=user.research_area
         ),
         message=f"Successfully authenticated as {user.role.upper()} via Neon PostgreSQL."
+    )
+
+@router.get("/profile/{identifier}", response_model=UserResponse)
+def get_user_profile(identifier: str, db: Session = Depends(get_db)):
+    identifier_clean = identifier.strip().lower()
+    user = db.query(User).filter(
+        (User.email.ilike(identifier_clean)) | (User.role == identifier_clean)
+    ).first()
+
+    if not user:
+        if identifier_clean == "student":
+            return UserResponse(
+                id="usr_student_01",
+                email="student@bluesphere.org",
+                name="Student Scholar",
+                role="student",
+                organization="Ocean Science University",
+                department="Department of Ocean Engineering",
+                course="Physical Oceanography & Hydrography",
+                year="2nd Year"
+            )
+        elif identifier_clean == "researcher":
+            return UserResponse(
+                id="usr_researcher_01",
+                email="s.varma@incois.gov.in",
+                name="Dr. Sunita Varma",
+                role="researcher",
+                organization="INCOIS (Ministry of Earth Sciences)",
+                department="Ocean Dynamics & Modeling Division",
+                research_area="Indian Ocean Hydrography & Marine Heatwaves"
+            )
+        elif identifier_clean == "admin":
+            return UserResponse(
+                id="usr_admin_01",
+                email="admin@sih2026-ocean.gov.in",
+                name="System Administrator",
+                role="admin",
+                organization="National Ocean Data Center",
+                department="Infrastructure & Data Ingestion"
+            )
+        raise HTTPException(status_code=404, detail="User profile not found")
+
+    return UserResponse(
+        id=user.id,
+        email=user.email,
+        name=user.name,
+        role=user.role,
+        organization=user.organization,
+        department=user.department,
+        course=user.course,
+        year=user.year,
+        research_area=user.research_area
     )
 
 @router.post("/register", response_model=AuthResponse)
@@ -151,9 +227,10 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
         hashed_password=hash_password(payload.password),
         name=payload.name,
         role=payload.role.lower(),
-        organization=payload.organization or "Oceanographic Institute",
-        department=payload.department,
-        course=payload.course,
+        organization=payload.organization or "Indian Institute of Technology (IIT) Madras",
+        department=payload.department or "Department of Ocean Engineering",
+        course=payload.course or "Physical Oceanography & Hydrography",
+        year=payload.year or "2nd Year",
         research_area=payload.research_area,
         last_login=datetime.utcnow()
     )
@@ -172,6 +249,7 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
             organization=user.organization,
             department=user.department,
             course=user.course,
+            year=user.year,
             research_area=user.research_area
         ),
         message="Registration successful on Neon PostgreSQL."

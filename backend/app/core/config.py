@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     APP_ENV: str = "development"
     
     # Database configuration (Neon PostgreSQL production cluster)
-    DATABASE_URL: str = "postgresql://neondb_owner:npg_EiVGZQKh5N1l@ep-muddy-boat-aze0dnff-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
+    DATABASE_URL: str = "postgresql://neondb_owner:npg_VPqGldcM72ef@ep-lucky-night-ae6h9fhf-pooler.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require"
     
     # CORS Origins
     CORS_ORIGINS: Union[List[str], str] = [

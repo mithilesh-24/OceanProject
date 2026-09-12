@@ -13,18 +13,24 @@ from app.api.v1.endpoints.auth import hash_password
 def init_db(db: Session):
     # Create or update all tables in database
     try:
-        # Test if latest schema column exists
-        db.query(ArgoFloat).filter(ArgoFloat.cycle_history.isnot(None)).first()
-    except Exception:
-        db.rollback()
-        print("[Bluesphere Seeder] Schema update detected. Rebuilding SQLite tables...")
-        Base.metadata.drop_all(bind=engine)
         Base.metadata.create_all(bind=engine)
+        try:
+            # Test if latest schema column exists
+            db.query(ArgoFloat).filter(ArgoFloat.cycle_history.isnot(None)).first()
+        except Exception:
+            db.rollback()
+            print("[Bluesphere Seeder] Schema update detected. Updating tables...")
+            try:
+                Base.metadata.drop_all(bind=engine)
+            except Exception:
+                pass
+            Base.metadata.create_all(bind=engine)
 
-    Base.metadata.create_all(bind=engine)
-
-    # Check if already seeded
-    if db.query(Dataset).first() and db.query(ArgoFloat).first():
+        # Check if already seeded
+        if db.query(Dataset).first() and db.query(ArgoFloat).first():
+            return
+    except Exception as e:
+        print(f"[Bluesphere Seeder] Database initialization warning: {e}")
         return
 
     print("[Bluesphere Seeder] Seeding Indian Ocean datasets, observations, and models...")
@@ -602,18 +608,18 @@ def init_db(db: Session):
         ),
         User(
             id="usr_researcher_01",
-            email="researcher@incois.gov.in",
+            email="s.varma@incois.gov.in",
             hashed_password=hash_password("researcher123"),
             name="Dr. Sunita Varma",
             role="researcher",
             organization="INCOIS (Ministry of Earth Sciences)",
             department="Ocean Dynamics & Modeling Division",
-            research_area="Indian Ocean 4D Hydrodynamics & Marine Heatwaves",
+            research_area="Indian Ocean Hydrography & Marine Heatwaves",
             is_active=True
         ),
         User(
             id="usr_admin_01",
-            email="admin@bluesphere.org",
+            email="admin@sih2026-ocean.gov.in",
             hashed_password=hash_password("admin123"),
             name="System Administrator",
             role="admin",
