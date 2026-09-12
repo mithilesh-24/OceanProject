@@ -7,6 +7,8 @@ from app.models.observation import ArgoFloat, GliderMission, MooredBuoy, CtdCast
 from app.models.model_data import NumericalModel
 from app.models.analysis import AccuracyMetric, ErrorHotspot, AnomalyAlert, SavedWorkspace
 from app.models.pipeline import IngestionPipeline, UserProfile
+from app.models.user import User
+from app.api.v1.endpoints.auth import hash_password
 
 def init_db(db: Session):
     # Create or update all tables in database
@@ -584,6 +586,46 @@ def init_db(db: Session):
     ]
     db.add_all(pipelines)
 
+    # 9. Seed 3 Base Role Users (Student, Researcher, Admin)
+    base_users = [
+        User(
+            id="usr_student_01",
+            email="student@bluesphere.org",
+            hashed_password=hash_password("student123"),
+            name="Student Scholar",
+            role="student",
+            organization="Ocean Science University",
+            department="Department of Ocean Engineering",
+            course="Physical Oceanography & Hydrography",
+            year="2nd Year",
+            is_active=True
+        ),
+        User(
+            id="usr_researcher_01",
+            email="researcher@incois.gov.in",
+            hashed_password=hash_password("researcher123"),
+            name="Dr. Sunita Varma",
+            role="researcher",
+            organization="INCOIS (Ministry of Earth Sciences)",
+            department="Ocean Dynamics & Modeling Division",
+            research_area="Indian Ocean 4D Hydrodynamics & Marine Heatwaves",
+            is_active=True
+        ),
+        User(
+            id="usr_admin_01",
+            email="admin@bluesphere.org",
+            hashed_password=hash_password("admin123"),
+            name="System Administrator",
+            role="admin",
+            organization="National Ocean Data Center",
+            department="ERDDAP Ingestion & Telemetry Cluster",
+            is_active=True
+        )
+    ]
+    for u in base_users:
+        if not db.query(User).filter(User.email == u.email).first():
+            db.add(u)
+
     # Commit all seeds
     db.commit()
-    print("[Bluesphere Seeder] Successfully seeded database with Indian Ocean records!")
+    print("[Bluesphere Seeder] Successfully seeded database with Indian Ocean records and 3 base login roles!")

@@ -28,6 +28,7 @@ from app.api.v1.endpoints.bgc import router as bgc_router
 from app.api.v1.endpoints.routing import router as routing_router
 from app.api.v1.endpoints.ml_forecast import router as ml_forecast_router
 from app.api.v1.endpoints.disaster import router as disaster_router
+from app.api.v1.endpoints.auth import router as auth_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -56,6 +57,7 @@ app.add_middleware(
 )
 
 # Register API v1 Routers
+app.include_router(auth_router, prefix=f"{settings.API_V1_STR}/auth", tags=["Authentication & Neon DB"])
 app.include_router(health_router, prefix=f"{settings.API_V1_STR}", tags=["System Health"])
 app.include_router(datasets_router, prefix=f"{settings.API_V1_STR}/datasets", tags=["Dataset Catalog"])
 app.include_router(observations_router, prefix=f"{settings.API_V1_STR}/observations", tags=["In-Situ Observations"])

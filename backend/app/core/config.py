@@ -9,8 +9,8 @@ class Settings(BaseSettings):
     VERSION: str = "1.0.0"
     APP_ENV: str = "development"
     
-    # Database configuration (SQLite for local dev, PostgreSQL for production)
-    DATABASE_URL: str = "sqlite:///./bluesphere_v2.db"
+    # Database configuration (Neon PostgreSQL production cluster)
+    DATABASE_URL: str = "postgresql://neondb_owner:npg_EiVGZQKh5N1l@ep-muddy-boat-aze0dnff-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
     
     # CORS Origins
     CORS_ORIGINS: Union[List[str], str] = [

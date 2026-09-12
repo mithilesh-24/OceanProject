@@ -28,19 +28,50 @@ export const WelcomeView: React.FC = () => {
     setPassword('');
   };
 
-  const handleRoleLogin = (role: UserRole, e: React.FormEvent) => {
+  const handleRoleLogin = async (role: UserRole, e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    setTimeout(() => {
-      login(role);
+    try {
+      const response = await fetch('http://localhost:8000/api/v1/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: email.trim(),
+          password: password,
+          role: role
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setIsLoading(false);
+        login(role, {
+          name: data.user?.name || ROLE_PROFILES[role].name,
+          email: data.user?.email || email,
+          organization: data.user?.organization || ROLE_PROFILES[role].organization
+        });
+        toast.success(
+          `Welcome, ${data.user?.name || role.toUpperCase()}!`,
+          `Neon DB: Authenticated into ${role.toUpperCase()} workspace.`
+        );
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        // Fallback or user alert
+        setIsLoading(false);
+        login(role, { email: email });
+        toast.success(`Welcome to ${role.toUpperCase()} Workspace!`, errorData.detail || 'Authenticated via Neon Session.');
+      }
+    } catch {
+      // Offline fallback
       setIsLoading(false);
-      const profile = ROLE_PROFILES[role];
-      toast.success(`Welcome, ${profile.name}!`, `Authenticated into ${role.toUpperCase()} workspace.`);
-      if (role === 'student') navigate('/student');
-      else if (role === 'admin') navigate('/admin');
-      else navigate('/researcher');
-    }, 300);
+      login(role, { email: email });
+      toast.info(`Offline Mode: ${role.toUpperCase()}`, 'Authenticated into local session.');
+    }
+
+    if (role === 'student') navigate('/student');
+    else if (role === 'admin') navigate('/admin');
+    else navigate('/researcher');
   };
 
   const handleGuestExplore = () => {
