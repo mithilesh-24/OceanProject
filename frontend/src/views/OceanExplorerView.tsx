@@ -22,6 +22,7 @@ import { CoordinateInfo, LayerState, LocationDetails, MeasureModeType, Placemark
 import { ArgoFilterOptions, ArgoObservation } from '../types/argo';
 import { fetchArgoObservations } from '../services/argoService';
 import { api, DepthLayerConfig, TimeSnapshotData, TimelineData } from '../services/apiClient';
+import { cesiumController } from '../controllers/cesiumController';
 import {
   Layers,
   Ruler,
@@ -201,9 +202,13 @@ export const OceanExplorerView: React.FC = () => {
 
   // AI Copilot Real-Time Cesium Action Dispatcher
   useEffect(() => {
+    if (viewerRef.current) {
+      cesiumController.setViewer(viewerRef.current);
+    }
+
     const handleCopilotAction = (e: any) => {
       const act = e.detail;
-      const viewer = viewerRef.current;
+      const viewer = viewerRef.current || cesiumController.getViewer();
       if (!act || !viewer) return;
 
       if (act.type === 'GO_TO_REGION' || act.type === 'GO_TO_LOCATION') {

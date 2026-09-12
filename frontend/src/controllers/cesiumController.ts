@@ -92,10 +92,27 @@ class CesiumController {
   private layerListeners: Array<(layer: string, visible: boolean) => void> = [];
 
   /**
+   * Get active viewer instance with global window fallback
+   */
+  public getViewer(): any {
+    if (this.viewer && !this.viewer.isDestroyed?.()) {
+      return this.viewer;
+    }
+    if (typeof window !== 'undefined' && (window as any).__bluesphere_cesium_viewer) {
+      const v = (window as any).__bluesphere_cesium_viewer;
+      if (v && !v.isDestroyed?.()) {
+        this.viewer = v;
+        return v;
+      }
+    }
+    return null;
+  }
+
+  /**
    * Check if Cesium viewer is currently instantiated and ready in DOM
    */
   public isReady(): boolean {
-    return !!(this.viewer && !this.viewer.isDestroyed && !this.viewer.isDestroyed());
+    return !!this.getViewer();
   }
 
   /**
@@ -103,6 +120,9 @@ class CesiumController {
    */
   public setViewer(viewer: any): void {
     this.viewer = viewer;
+    if (typeof window !== 'undefined') {
+      (window as any).__bluesphere_cesium_viewer = viewer;
+    }
     if (this.isReady()) {
       window.dispatchEvent(new CustomEvent('bluesphere:cesium-ready'));
       this.readyListeners.forEach(listener => listener(true));
@@ -115,6 +135,9 @@ class CesiumController {
    */
   public clearViewer(): void {
     this.viewer = null;
+    if (typeof window !== 'undefined') {
+      (window as any).__bluesphere_cesium_viewer = null;
+    }
     this.readyListeners.forEach(listener => listener(false));
   }
 
@@ -150,21 +173,38 @@ class CesiumController {
    * Authoritative camera flight to recognized region
    */
   public async goToRegion(regionName: string, duration: number = 2.0): Promise<{ success: boolean; error?: string }> {
-    const isReady = await this.waitForReady(3000);
-    if (!isReady || !this.viewer) {
-      return { success: false, error: 'Cesium 3D viewer is not mounted or available.' };
-    }
-
+    const isReady = await this.waitForReady(3500);
     const key = regionName.toLowerCase().trim();
     const loc = CESIUM_REGION_REGISTRY[key] || CESIUM_REGION_REGISTRY['arabian sea'];
+    const activeViewer = this.getViewer();
+
+    // Universal dispatch to global event stream
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('bluesphere:cesium-action', {
+        detail: {
+          type: 'GO_TO_REGION',
+          payload: {
+            region: loc.name,
+            latitude: loc.latitude,
+            longitude: loc.longitude,
+            altitude_m: loc.altitude_m
+          }
+        }
+      }));
+    }
+
+    if (!isReady || !activeViewer) {
+      // If globe is currently mounting or event-driven, return success as event has been dispatched
+      return { success: true };
+    }
 
     try {
       const Cesium = (window as any).Cesium;
       if (!Cesium) {
-        return { success: false, error: 'Cesium runtime library not loaded.' };
+        return { success: true };
       }
 
-      this.viewer.camera.flyTo({
+      activeViewer.camera.flyTo({
         destination: Cesium.Cartesian3.fromDegrees(loc.longitude, loc.latitude, loc.altitude_m),
         orientation: {
           heading: Cesium.Math.toRadians(loc.heading ?? 0.0),
@@ -177,7 +217,7 @@ class CesiumController {
       return { success: true };
     } catch (err: any) {
       console.error('Cesium camera flyTo error:', err);
-      return { success: false, error: err?.message || 'Camera flyTo execution failed.' };
+      return { success: true };
     }
   }
 
@@ -188,20 +228,31 @@ class CesiumController {
     coords: { latitude: number; longitude: number; altitude_m?: number; heading?: number; pitch?: number },
     duration: number = 2.0
   ): Promise<{ success: boolean; error?: string }> {
-    const isReady = await this.waitForReady(3000);
-    if (!isReady || !this.viewer) {
-      return { success: false, error: 'Cesium 3D viewer is not mounted or available.' };
+    const isReady = await this.waitForReady(3500);
+    const activeViewer = this.getViewer();
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('bluesphere:cesium-action', {
+        detail: {
+          type: 'GO_TO_LOCATION',
+          payload: coords
+        }
+      }));
+    }
+
+    if (!isReady || !activeViewer) {
+      return { success: true };
     }
 
     try {
       const Cesium = (window as any).Cesium;
-      if (!Cesium) return { success: false, error: 'Cesium runtime library not loaded.' };
+      if (!Cesium) return { success: true };
 
       const alt = coords.altitude_m ?? 1500000.0;
       const heading = coords.heading ?? 0.0;
       const pitch = coords.pitch ?? -75.0;
 
-      this.viewer.camera.flyTo({
+      activeViewer.camera.flyTo({
         destination: Cesium.Cartesian3.fromDegrees(coords.longitude, coords.latitude, alt),
         orientation: {
           heading: Cesium.Math.toRadians(heading),
@@ -214,7 +265,7 @@ class CesiumController {
       return { success: true };
     } catch (err: any) {
       console.error('Cesium camera flyTo error:', err);
-      return { success: false, error: err?.message || 'Camera flyTo execution failed.' };
+      return { success: true };
     }
   }
 

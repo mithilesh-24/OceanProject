@@ -174,6 +174,18 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           </Tooltip>
         )}
 
+        <Tooltip content="Open Welcome & Role-Based Login Portal">
+          <Link to="/welcome" style={{ textDecoration: 'none' }}>
+            <Button
+              variant="outline"
+              size="sm"
+              leftIcon={<Globe className="w-3.5 h-3.5 text-cyan-500" />}
+            >
+              Welcome Hub
+            </Button>
+          </Link>
+        </Tooltip>
+
         <RoleSwitcher />
 
         <ThemeSwitcher size="sm" />

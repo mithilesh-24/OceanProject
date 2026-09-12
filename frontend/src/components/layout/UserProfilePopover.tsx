@@ -1,12 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { User, Mail, Building, Award, BookOpen, ShieldCheck, LogOut, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useRole, UserRole } from '../../context/RoleContext';
 import { useToast } from '../../context/ToastContext';
 import { Badge } from '../UI/Badge';
 import { Button } from '../UI/Button';
 
 export const UserProfilePopover: React.FC = () => {
-  const { profile, currentRole, setRole } = useRole();
+  const navigate = useNavigate();
+  const { profile, currentRole, logout } = useRole();
   const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -22,9 +24,10 @@ export const UserProfilePopover: React.FC = () => {
   }, []);
 
   const handleLogout = () => {
-    setRole('public');
+    logout();
     setIsOpen(false);
-    toast.info('Session Ended', 'Logged out. Active workspace set to Public Guest Scientist.');
+    toast.info('Session Ended', 'Logged out successfully. Returning to Welcome Portal.');
+    navigate('/welcome');
   };
 
   return (

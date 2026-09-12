@@ -14,7 +14,7 @@ export interface UserProfile {
   avatarUrl?: string;
 }
 
-const ROLE_PROFILES: Record<UserRole, UserProfile> = {
+export const ROLE_PROFILES: Record<UserRole, UserProfile> = {
   public: {
     name: 'Guest Scientist',
     email: 'visitor@ocean-data.org',
@@ -47,16 +47,43 @@ const ROLE_PROFILES: Record<UserRole, UserProfile> = {
   },
 };
 
+export const DEMO_CREDENTIALS: Record<UserRole, { email: string; defaultPass: string; roleLabel: string }> = {
+  student: {
+    email: 'aarav.sharma@oceanuniv.edu.in',
+    defaultPass: 'student123',
+    roleLabel: 'Student Scholar',
+  },
+  researcher: {
+    email: 's.varma@incois.gov.in',
+    defaultPass: 'researcher123',
+    roleLabel: 'Ocean Scientist',
+  },
+  admin: {
+    email: 'admin@sih2026-ocean.gov.in',
+    defaultPass: 'admin123',
+    roleLabel: 'Platform Administrator',
+  },
+  public: {
+    email: 'visitor@ocean-data.org',
+    defaultPass: '',
+    roleLabel: 'Guest Explorer',
+  },
+};
+
 interface RoleContextType {
   currentRole: UserRole;
   setRole: (role: UserRole) => void;
   profile: UserProfile;
   updateProfile: (updates: Partial<UserProfile>) => void;
+  isAuthenticated: boolean;
+  login: (role: UserRole, customProfile?: Partial<UserProfile>) => void;
+  logout: () => void;
 }
 
 const RoleContext = createContext<RoleContextType | undefined>(undefined);
 
 const ROLE_STORAGE_KEY = 'oceanvis_user_role';
+const AUTH_STORAGE_KEY = 'oceanvis_auth_status';
 
 export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentRole, setCurrentRole] = useState<UserRole>(() => {
@@ -68,7 +95,16 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch {
       // ignore
     }
-    return 'researcher'; // Default role for rich scientific experience
+    return 'researcher'; // Default role
+  });
+
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    try {
+      const storedAuth = localStorage.getItem(AUTH_STORAGE_KEY);
+      return storedAuth === 'true';
+    } catch {
+      return true; // Default authenticated for frictionless direct navigation
+    }
   });
 
   const [profiles, setProfiles] = useState<Record<UserRole, UserProfile>>(ROLE_PROFILES);
@@ -81,8 +117,35 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [currentRole]);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(AUTH_STORAGE_KEY, String(isAuthenticated));
+    } catch {
+      // ignore
+    }
+  }, [isAuthenticated]);
+
   const setRole = (role: UserRole) => {
     setCurrentRole(role);
+  };
+
+  const login = (role: UserRole, customProfile?: Partial<UserProfile>) => {
+    setCurrentRole(role);
+    setIsAuthenticated(true);
+    if (customProfile) {
+      setProfiles((prev) => ({
+        ...prev,
+        [role]: {
+          ...prev[role],
+          ...customProfile,
+        },
+      }));
+    }
+  };
+
+  const logout = () => {
+    setIsAuthenticated(false);
+    setCurrentRole('public');
   };
 
   const updateProfile = (updates: Partial<UserProfile>) => {
@@ -102,6 +165,9 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setRole,
         profile: profiles[currentRole],
         updateProfile,
+        isAuthenticated,
+        login,
+        logout,
       }}
     >
       {children}
@@ -116,3 +182,4 @@ export const useRole = (): RoleContextType => {
   }
   return context;
 };
+

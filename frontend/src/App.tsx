@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppShell } from './components/layout/AppShell';
 
 // Route Views
+import { WelcomeView } from './views/WelcomeView';
 import { DashboardView } from './views/DashboardView';
 import { OceanExplorerView } from './views/OceanExplorerView';
 import { DatasetsView } from './views/DatasetsView';
@@ -42,6 +43,12 @@ export const App: React.FC = () => {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Standalone Single-Page Welcome & Role Hub */}
+        <Route path="/welcome" element={<WelcomeView />} />
+        <Route path="/login" element={<WelcomeView />} />
+        <Route path="/login/*" element={<WelcomeView />} />
+
+        {/* Platform Workspaces & Main Layout */}
         <Route element={<AppShell />}>
           {/* Core Routes */}
           <Route path="/" element={<DashboardView />} />
